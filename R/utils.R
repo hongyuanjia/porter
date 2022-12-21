@@ -228,12 +228,15 @@ download_file <- function(url, destfile, desc = NULL) {
     # init return state
     ret <- NULL
 
-    # skip download if in tests
-    if (identical(Sys.getenv("PORTER_TEST"), "true") && .global$cache$exists(url)) {
+    # skip download if possible
+    skip <- FALSE
+    if (.global$cache$exists(url)) {
         dl <- .global$cache$get(url)
-        if (file.exists(dl)) {
+        if (skip <- (file.exists(dl$path) && tools::md5sum(dl$path) == dl$md5)) {
             ret <- 0L
-            if (normalizePath(dl) != normalizePath(destfile)) file.copy(dl, destfile)
+            if (normalizePath(dl$path) != normalizePath(destfile)) {
+                file.copy(dl$path, destfile)
+            }
         }
     }
 
@@ -267,9 +270,12 @@ download_file <- function(url, destfile, desc = NULL) {
                 url
             )
         ))
-    } else if (identical(Sys.getenv("PORTER_TEST"), "true")) {
-        # cache the downloaded file if in tests
-        .global$cache$set(url, destfile)
+    }
+
+    # cache the downloaded file
+    if (!skip) {
+        val <- list(path = destfile, md5 = unname(tools::md5sum(destfile)))
+        .global$cache$set(url, val)
     }
 
     ret

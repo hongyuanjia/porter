@@ -21,8 +21,6 @@ test_that("Can get all CastXML versions", {
 test_that("Can download CastXML releases", {
     skip_on_cran()
 
-    Sys.setenv("PORTER_TEST" = "true")
-
     expect_type(dl <- download_castxml(), "character")
     expect_true(file.exists(dl))
     expect_false(is.null(attr(dl, "version")))
@@ -30,8 +28,6 @@ test_that("Can download CastXML releases", {
 
 test_that("Can install CastXML releases", {
     skip_on_cran()
-
-    Sys.setenv("PORTER_TEST" = "true")
 
     expect_true(install_castxml(force = TRUE))
     expect_type(locate_castxml(), "character")
