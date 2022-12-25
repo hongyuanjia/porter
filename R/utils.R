@@ -341,39 +341,6 @@ read_url <- function(url) {
     res
 }
 
-# goto
-# ref: https://github.com/moodymudskipper/goto/blob/master/R/goto.R
-goto <- function(label) {
-    # from:
-    # env_caller_enclos
-    # \--- env_exec
-    #
-    # to:
-    # env_caller_enclos
-    # \--- env_mask
-    #      \--- env_exec
-    #
-    # env_mask is an environment redefines everything that the caller uses
-    # as a function that returns nothing until reaches the call '(label)'
-    env_exec <- parent.frame()
-
-    caller <- sys.function(-1L)
-    env_caller_enclos <- environment(caller)
-
-    env_mask <- new.env(parent = env_caller_enclos)
-    parent.env(env_exec) <- env_mask
-
-    vars <- all.names(body(caller))
-    vars <- setNames(replicate(length(vars), function(...) invisible()), vars)
-    list2env(vars, env_mask)
-
-    env_mask$`(` <- function(lab) {
-        if (length(substitute(lab)) != 1 || lab != label) return(invisible())
-        parent.env(env_exec) <- env_caller_enclos
-        invisible()
-    }
-}
-
 from_json <- function(json, verbose = FALSE) {
     stopifnot(is.character(json))
     stopifnot(is_flag(verbose))
