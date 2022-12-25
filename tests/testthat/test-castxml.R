@@ -13,7 +13,7 @@ test_that("Can get all CastXML versions", {
 
     expect_named(res, c("_id", "name", "size"))
 
-    expect_type(res$size, "double")
+    expect_type(res$size, "integer")
 
     expect_false(is.null(attr(res, "version")))
 })

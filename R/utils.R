@@ -655,3 +655,22 @@ from_json <- function(json, verbose = FALSE) {
 
     parse_value()
 }
+
+transpose <- function(lst) {
+    if (length(unique(lengths(lst))) != 1L) {
+        stop("'lst' must contain lists with the same length.")
+    }
+
+    first <- .subset2(lst, 1L)
+    nms <- names(first)
+
+    res <- lapply(nms, function(name) {
+        if (is.null(elem <- .subset2(first, name)) || is.list(elem)) {
+            lapply(lst, .subset2, name)
+        } else {
+            vapply(lst, .subset2, elem, name)
+        }
+    })
+    names(res) <- nms
+    res
+}

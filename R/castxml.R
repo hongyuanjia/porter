@@ -244,7 +244,14 @@ list_castxml_rel_files <- function(version = "latest", all = FALSE) {
 
     # get all items in that folder
     res <- kitware_api(type = "item", folderId = unname(id), sort = "lowerName", sortdir = -1)
-    res <- get_json_elem(res, "_id", "name", "size")
+    res <- lapply(res, .subset, c("_id", "name", "size"))
+
+    # just in case
+    if (length(unique(lengths(res))) != 1L) {
+        stop("Internal error when fetching CastXML release files.")
+    }
+
+    res <- transpose(res)
     attr(res, "version") <- version
 
     if (all) return(res)
@@ -312,17 +319,20 @@ get_castxml_vers <- function() {
     )
 
     # folder names as versions
-    res <- get_json_elem(res, "_id", "name")
+    res <- lapply(res, .subset, c("_id", "name"))
 
     # just in case
     if (length(unique(lengths(res))) != 1L) {
         stop("Internal error when fetching CastXML releases.")
     }
 
+    ids <- vapply(res, .subset2, character(1L), "_id")
+    nms <- vapply(res, .subset2, character(1L), "name")
+
     # exclude nightly
-    is_normver <- startsWith(res$name, "v")
-    ids <- res$`_id`[is_normver]
-    vers <- substr(res$name[is_normver], 2L, nchar(res$name))
+    is_normver <- startsWith(nms, "v")
+    ids <- ids[is_normver]
+    vers <- substr(nms[is_normver], 2L, nchar(nms[is_normver]))
 
     names(ids) <- vers
     ids
