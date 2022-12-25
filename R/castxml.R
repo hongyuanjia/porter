@@ -17,7 +17,7 @@ locate_castxml <- function(patch = FALSE) {
 
     if (!dir.exists(dir)) return(NULL)
 
-    if (!file.exists(castxml <- file.path(dir, exec_ext("castxml")))) {
+    if (!file.exists(found <- file.path(dir, exec_ext("castxml")))) {
         message(spaste(
             "CastXML installation found at '%s'.",
             "But failed to locate CastXML executable.",
@@ -25,7 +25,7 @@ locate_castxml <- function(patch = FALSE) {
         ))
     }
 
-    res <- system2(castxml, "--version", stdout = TRUE, stderr = TRUE)
+    res <- castxml("--version", .castxml = found, .capture = TRUE)
 
     if (!is.null(status <- attr(res, "status")) && status != 0L) {
         message(spaste(
@@ -52,7 +52,7 @@ locate_castxml <- function(patch = FALSE) {
         }
 
         # rerun
-        res <- system2(castxml, "--version", stdout = TRUE, stderr = TRUE)
+        res <- castxml("--version", .castxml = found, .capture = TRUE)
 
         if (!is.null(status <- attr(res, "status")) && status != 0L) {
             message(spaste("Still failed to detect CastXML version."))
@@ -71,7 +71,7 @@ locate_castxml <- function(patch = FALSE) {
         }
     }
 
-    ver <- reg_match(res[[1L]], "\\d[.]\\d[.]\\d")[[1L]]
+    ver <- reg_match(res[[1L]], "\\d[.]\\d[.]\\d")
 
     names(dir) <- ver
     dir
@@ -140,7 +140,7 @@ install_castxml <- function(version = "latest", force = FALSE) {
 
     # fix zlib dependency issue for v0.4.8
     if (local_file) {
-        v <- system2(castxml, "--version", stdout = TRUE, stderr = TRUE)
+        v <- castxml("--version", .castxml = castxml, .capture = TRUE)
         if (!is.null(attr(v, "status")) && attr(v, "status") == 309L) {
             message(spaste(
                 "Command 'castxml --version' returns an error code of '309'.",
@@ -328,40 +328,15 @@ get_castxml_vers <- function() {
     ids
 }
 
-kitware_api <- function(type, ...) {
-    stopifnot(is_string(type))
+# TODO
+valid_castxml_loc <- function(loc) {
 
-    baseurl <- "https://data.kitware.com/api/v1"
-    url <- file.path(baseurl, type)
+}
 
-    params <- list(...)
-    if (length(params)) {
-        if (is.null(names(params)) || "" %in% names(params)) {
-            stop("All parameters should be named.")
-        }
-
-        if (!all(is_scalar <- lengths(params) == 1L)) {
-            stop(spaste(
-                "Every parameter should have a length of 1.",
-                "But the following element(s) are not: [%s]",
-                .v = which(!is_scalar), .vcoll = ", "
-            ))
-        }
-
-        # always order parameters by name and memorize parameters to reduce API
-        # rate
-        params <- unlist(params[order(names(params))], use.names = TRUE)
-        params <- spaste("%s=%s", .v = list(names(params), params), .rcoll = "&")
-        url <- sprintf("%s?%s", url, params)
+castxml <- function(..., .castxml = locate_castxml(), .capture = FALSE) {
+    if (.capture) {
+        system2(.castxml, args = c(...), stdout = TRUE, stderr = TRUE)
+    } else {
+        system2(.castxml, args = c(...))
     }
-
-    # use previous results
-    if (.global$cache$exists(url)) return(.global$cache$get(url))
-
-    res <- read_utf8(url)
-
-    # store current query results
-    .global$cache$set(url, res)
-
-    res
 }

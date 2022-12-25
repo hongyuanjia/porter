@@ -1,7 +1,7 @@
 # a simple in-memory cache implemented using lists
 # inspired by the {cachem} package
 #' @include utils.R
-cache_new <- function(n = getOption("porter.cache_num", 5L), age = "1 hour", persist = TRUE) {
+cache_new <- function(n = getOption("porter.cache_num", 10L), age = "1 hour", persist = TRUE) {
     stopifnot(is_flag(persist) || is_string(persist))
 
     # store the cache as a temporary file
@@ -26,7 +26,7 @@ cache_new <- function(n = getOption("porter.cache_num", 5L), age = "1 hour", per
         }
     } else if (is_string(age)) {
         re <- "^\\s*(?<num>[0-9.]+)\\s*(?<unit>sec|min|hour|day)[s]?\\s*"
-        age_spec <- reg_match(age, re, n = 1:2)[[1L]][1L, ]
+        age_spec <- reg_match(age, re, n = 1:2)
         num <- as.numeric(age_spec["num"])
         unit <- age_spec["unit"]
 

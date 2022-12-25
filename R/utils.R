@@ -26,6 +26,8 @@ is_number  <- function(x) is_scalar(x) && !is.na(x) && is.numeric(x)
 
 is_string  <- function(x) is_scalar(x) && is.character(x) && !is.na(x)
 
+is_named   <- function(x) !is.null(names(x)) && all(!is.na(names(x))) && all(names(x) != "")
+
 is_flag    <- function(x) is_scalar(x) && is.logical(x) && !is.na(x)
 
 is_windows <- function() .Platform$OS.type == "windows"
@@ -62,13 +64,12 @@ spaste <- function(..., .v = NULL, .fsep = " ", .fcoll = " ", .vcoll = NULL, .rc
     res
 }
 
-reg_match <- function(x, pattern, n = NULL) {
+reg_match <- function(x, pattern, n = NULL, flat = TRUE) {
     stopifnot(is_string(pattern))
     stopifnot(is.null(n) || (is_integerish(n) && all(n > 0)))
+    stopifnot(is_flag(flat))
 
     x <- as.character(x)
-
-    if (is.null(n)) { }
 
     match <- gregexpr(pattern, x, perl = TRUE)
 
@@ -126,6 +127,21 @@ reg_match <- function(x, pattern, n = NULL) {
     # only return whole match and specified groups
     if (!is.null(n)) res <- lapply(res, function(mat) mat[, c(1L, n + 1L), drop = FALSE])
 
+    # only flat when every input has at least a match
+    if (flat && !any(nomatch)) {
+        # if all are a single row matrix, change to a character vector
+        if (ngrp && all(vapply(res, nrow, integer(1)) == 1L)) {
+            res <- lapply(res, function(x) {
+                chr <- as.character(x)
+                names(chr) <- colnames(x)
+                chr
+            })
+        }
+
+        # if input is a string, directly returns the results
+        if (length(x) == 1L) res <- res[[1L]]
+    }
+
     return(res)
 }
 
@@ -182,7 +198,7 @@ get_json_elem <- function(rawjson, ...) {
     res <- lapply(
         sprintf('"%s": (?<value>(?:"[^"]+")|(?:\\d+))', nms),
         function(reg) {
-            m <- reg_match(rawjson, reg, n = 1L)[[1L]][, "value"]
+            m <- reg_match(rawjson, reg, n = 1L)[, "value"]
             if (all(!grepl("\"", m, fixed = TRUE))) {
                 as.double(m)
             } else {
@@ -302,4 +318,373 @@ dir_copy <- function(from, to) {
 file_ext <- function(x) {
     pos <- regexpr("[.]([[:alnum:]]+|tar[.](gz|bz2|xz))$", x)
     if (pos > -1L) substring(x, pos + 1L) else ""
+}
+
+read_url <- function(url) {
+    if (!inherits(url, "url")) {
+        key <- url
+    } else {
+        # a hack to extract the URL from a connection
+        key <- reg_match(
+            capture.output(print(url))[2L],
+            '\"(?<key>[^"]+)\"$', 1L
+        )["key"]
+    }
+    # use previous results if possible
+    if (.global$cache$exists(key)) return(.global$cache$get(key))
+
+    res <- read_utf8(url)
+
+    # store current query results
+    .global$cache$set(key, res)
+
+    res
+}
+
+# goto
+# ref: https://github.com/moodymudskipper/goto/blob/master/R/goto.R
+goto <- function(label) {
+    # from:
+    # env_caller_enclos
+    # \--- env_exec
+    #
+    # to:
+    # env_caller_enclos
+    # \--- env_mask
+    #      \--- env_exec
+    #
+    # env_mask is an environment redefines everything that the caller uses
+    # as a function that returns nothing until reaches the call '(label)'
+    env_exec <- parent.frame()
+
+    caller <- sys.function(-1L)
+    env_caller_enclos <- environment(caller)
+
+    env_mask <- new.env(parent = env_caller_enclos)
+    parent.env(env_exec) <- env_mask
+
+    vars <- all.names(body(caller))
+    vars <- setNames(replicate(length(vars), function(...) invisible()), vars)
+    list2env(vars, env_mask)
+
+    env_mask$`(` <- function(lab) {
+        if (length(substitute(lab)) != 1 || lab != label) return(invisible())
+        parent.env(env_exec) <- env_caller_enclos
+        invisible()
+    }
+}
+
+from_json <- function(json, verbose = FALSE) {
+    stopifnot(is.character(json))
+    stopifnot(is_flag(verbose))
+
+    if (!length(json)) return(NULL)
+
+    if (length(json) > 1L) json <- paste0(json, collapse = "\n")
+
+    chars <- strsplit(json, "", fixed = TRUE)[[1L]]
+    len <- length(chars)
+
+    # init index
+    i <- 1L
+
+    # for error printing
+    call <- sys.call()
+    lnum <- 1L
+    lnum_i <- 1L
+    new_line <- FALSE
+
+    # current character
+    char <- .subset2(chars, i)
+    # indicate whether current element is valid
+    valid <- TRUE
+
+    error <- function(desc = NULL, offset = 10L, depth = 1L) {
+        ctx <- sub("parse_", "", deparse(sys.call(-depth)[[1L]]))
+
+        offset <- min(lnum_i, offset)
+        line <- substring(json, i - offset + 1L, i)
+        arrow <- "(right here) ------^"
+        pad <- nchar(arrow) - nchar(line)
+        if (pad > 0) {
+            line <- paste0(strrep(" ", pad), line)
+        } else {
+            arrow <- paste0(strrep(" ", -pad), arrow)
+        }
+        if (nchar(arrow) < 30) {
+            line <- paste0(strrep(" ", 30 - nchar(arrow)), line)
+            arrow <- paste0(strrep(" ", 30 - nchar(arrow)), arrow)
+        }
+
+        msg <- spaste(
+            "Failed to parse JSON %s. %sPossible malformed position at line %i:\n",
+            "%s\n",
+            "%s",
+            .v = list(
+                ctx,
+                if (is.null(desc)) sprintf("Incomplete %s data. ", ctx) else paste0(desc, " "),
+                lnum,
+                line,
+                arrow
+            )
+        )
+        stop(simpleError(msg, call))
+    }
+
+    # check if current element is out of bound
+    check <- function() {
+        if (i > len) valid <<- FALSE
+        valid
+    }
+
+    # get the character at current position
+    read_char <- function() if (check()) char <<- .subset2(chars, i) else NULL
+    # read_char <- function() if (check()) char <<- .subset2(chars, i) else NULL
+
+    # move position
+    forward <- function(step = 1L) {
+        i <<- i + step
+        lnum_i <<- lnum_i + 1L
+    }
+    backward <- function(step = 1L) {
+        i <<- i - step
+        lnum_i <<- lnum_i - 1L
+    }
+
+    # move position, check out-of-bound and get the character after specified
+    # step
+    # if i is out-of-bound and strict is TRUE, directly return NULL
+    pop <- function(step = 1L) {
+        forward(step)
+        if (!check()) error(depth = 2L)
+        read_char()
+    }
+
+    peek <- function(step = 1L) {
+        forward(step)
+        if (!check()) error(depth = 2L)
+        char <- read_char()
+        backward(step)
+        read_char()
+        char
+    }
+
+    # skip white spaces
+    skip_whitespace <- function() {
+        while (char == " " || char == "\t" || char == "\r" || (new_line <<- char == "\n")) {
+            if (new_line) {
+                lnum <<- lnum + 1L
+                lnum_i <<- 0L
+                new_line <<- FALSE
+            }
+            forward(1L)
+            if (!check()) error(depth = 2L)
+            read_char()
+        }
+    }
+
+    parse_value <- function() {
+        if (!check()) error()
+
+        skip_whitespace()
+
+        if (!check()) error()
+
+        if (char == "{") {
+            parse_object()
+        } else if (char == "[") {
+            parse_array()
+        } else if (char == '"') {
+            parse_string()
+        } else if (char %in% c("-", CHAR09)) {
+            parse_number()
+        } else if (char == "t") {
+            parse_true()
+        } else if (char == "f") {
+            parse_false()
+        } else if (char == "n") {
+            parse_null()
+        } else {
+            error("Unexpected data found.")
+        }
+    }
+
+    parse_object <- function() {
+        if (char != "{") error("No object openning tag ('{').")
+
+        obj <- vector("list")
+
+        pop(1L)
+        skip_whitespace()
+
+        # empty list
+        if (char == "}") {
+            # only pop if this is not the last character
+            if (i != len) pop(1L)
+            return(list())
+        }
+
+        while (TRUE) {
+            skip_whitespace()
+
+            # empty object
+            if (char == "}") break
+
+            # key
+            key <- parse_string()
+
+            if (char != ":") {
+                error("Object key and value must be separated by a colon (':').")
+            }
+
+            pop(1L)
+            skip_whitespace()
+
+            # value
+            val <- parse_value()
+
+            obj[key] <- list(val)
+
+            skip_whitespace()
+
+            if (char == "}") {
+                # only pop if this is not the last character
+                if (i != len) pop(1L)
+                break
+            }
+
+            if (char != ",") error("No object closing tag ('}').")
+            pop(1L)
+        }
+
+        obj
+    }
+
+    parse_string <- function() {
+        # current character should be a double quote
+        if (char != '"') error('No double-quote for string (\'"\').')
+
+        # move to the next character
+        pop(1L)
+
+        # get the current position
+        str_start <- i
+
+        while (TRUE) {
+            # move until see '\' or '"'
+            while (char != "\\" && char != '"') pop(1L)
+
+            # if see '\', skip it
+            # otherwise, it is the other '"' and parsing stops
+            if (char == "\\") pop(2L) else break
+        }
+
+        # get the end position
+        str_end <- i - 1L
+
+        # move to the next character
+        pop(1L)
+
+        # in case there are "\r\n" in the string
+        eval(parse(text = substring(json, str_start - 1L, str_end + 1L)))
+    }
+
+    CHAR19 <- c("1", "2", "3", "4", "5", "6", "7", "8", "9")
+    CHAR09 <- c("0", CHAR19)
+    parse_number <- function() {
+        num_start <- i
+        decimal <- FALSE
+
+        if (char == "-") pop(1L)
+
+        if (!char %in% CHAR09) {
+            error("Invalid number specs found.")
+        }
+
+        # check if invalid number spec in '012'
+        if (char == "0" && !is.null(char_next <- peek(1L)) && char_next %in% CHAR19) {
+            error("Invalid number specs found. JSON did not allow numbers in format like '012'.")
+        }
+
+        while (char %in% CHAR09) pop(1L)
+
+        if (char == ".") {
+            decimal <- TRUE
+            pop(1L)
+            while (char %in% CHAR09) pop(1L)
+        }
+
+        if (char == "e" || char == "E") {
+            pop(1L)
+            if (char == "-" || char == "+") pop(1L)
+            while (char %in% CHAR09) pop(1L)
+        }
+
+        num_end <- i - 1L
+        num <- substring(json, num_start, num_end)
+        if (decimal) as.double(num) else as.integer(num)
+    }
+
+    parse_true <- function() {
+        if (paste0(char, peek(1L), peek(2L), peek(3L), collapse = "") != "true") {
+            error()
+        }
+        pop(4L)
+        TRUE
+    }
+
+    parse_false <- function() {
+        if (paste0(char, peek(1L), peek(2L), peek(3L), peek(4L), collapse = "") != "false") {
+            error()
+        }
+        pop(5L)
+        FALSE
+    }
+
+    parse_null <- function() {
+        if (paste0(char, peek(1L), peek(2L), peek(3L), collapse = "") != "null") {
+            error()
+        }
+        pop(4L)
+        NULL
+    }
+
+    parse_array <- function() {
+        if (char != "[") error("No array openning tag ('[').")
+        arr <- list()
+        flat <- TRUE
+
+        pop(1L)
+        skip_whitespace()
+
+        # empty array
+        if (char == "]") {
+            # only pop if this is not the last character
+            if (i != len) pop(1L)
+            return(list())
+        }
+
+        while (TRUE) {
+            val <- parse_value()
+            arr[[length(arr) + 1L]] <- val
+            if (is.list(val) || length(val) > 1L || is.null(val)) {
+                flat <- FALSE
+            }
+
+            skip_whitespace()
+            if (char == "]") {
+                # only pop if this is not the last character
+                if (i != len) pop(1L)
+                break
+            }
+            if (char != ",") error("No array closing tag ('[').")
+            pop(1L)
+        }
+
+        if (flat) arr <- unlist(arr)
+
+        arr
+    }
+
+    parse_value()
 }
