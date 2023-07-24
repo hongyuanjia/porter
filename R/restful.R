@@ -52,11 +52,7 @@ extract_release_data <- function(release) {
             "browser_download_url"
         )]
 
-        out$assets <- structure(
-            assets,
-            row.names = seq_along(assets[[1]]),
-            class = "data.frame"
-        )
+        out$assets <- as_df(assets)
     }
 
     out

@@ -3,3 +3,5 @@
 export(download_castxml)
 export(install_castxml)
 export(locate_castxml)
+export(port)
+export(port_xml)

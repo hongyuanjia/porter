@@ -3,8 +3,8 @@ if (getRversion() < "3.2.0") {
         sub("[ \t\r\n]+$", sub("[ \t\r\n]+$", x, perl = TRUE), perl = TRUE)
     }
 
-    lengths <- function(x) {
-        sapply(x, length, USE.NAMES = FALSE)
+    lengths <- function(x, use.names = TRUE) {
+        sapply(x, length, USE.NAMES = use.names)
     }
 }
 
@@ -35,6 +35,18 @@ is_windows <- function() .Platform$OS.type == "windows"
 is_linux   <- function() Sys.info()["sysname"] == "Linux"
 
 is_macos   <- function() Sys.info()["sysname"] == "Darwin"
+
+lmap <- function(x, f, ..., use.names = TRUE) {
+    vapply(x, f, logical(1), ..., USE.NAMES = use.names)
+}
+
+cmap <- function(x, f, ..., use.names = TRUE) {
+    vapply(x, f, character(1), ..., USE.NAMES = use.names)
+}
+
+imap <- function(x, f, ..., use.names = TRUE) {
+    vapply(x, f, integer(1), ..., USE.NAMES = use.names)
+}
 
 read_utf8 <- function(con) {
     old <- options(encoding = "native.enc")
@@ -209,7 +221,7 @@ get_json_elem <- function(rawjson, ...) {
 
     if (length(res) == 1L) return(res[[1L]])
 
-    len <- lengths(res)
+    len <- lengths(res, FALSE)
     if (length(llen <- len[has_len <- len > 0L]) && length(unique(llen)) > 1L) {
         warning(spaste(
             "The following elements from JSON do not have the same length: [%s]",
@@ -318,6 +330,10 @@ dir_copy <- function(from, to) {
 file_ext <- function(x) {
     pos <- regexpr("[.]([[:alnum:]]+|tar[.](gz|bz2|xz))$", x)
     if (pos > -1L) substring(x, pos + 1L) else ""
+}
+
+sans_ext <- function(x) {
+    sub("^(.*?)[.]([[:alnum:]]+|tar[.](gz|bz2|xz))$", "\\1", x)
 }
 
 read_url <- function(url) {
@@ -656,8 +672,8 @@ from_json <- function(json, verbose = FALSE) {
     parse_value()
 }
 
-transpose <- function(lst) {
-    if (length(unique(lengths(lst))) != 1L) {
+transpose <- function(lst, flatten = TRUE) {
+    if (length(unique.default(lengths(lst, FALSE))) != 1L) {
         stop("'lst' must contain lists with the same length.")
     }
 
@@ -665,7 +681,8 @@ transpose <- function(lst) {
     nms <- names(first)
 
     res <- lapply(nms, function(name) {
-        if (is.null(elem <- .subset2(first, name)) || is.list(elem)) {
+        elem <- .subset2(first, name)
+        if (!flatten || (!length(elem) || is.list(elem))) {
             lapply(lst, .subset2, name)
         } else {
             vapply(lst, .subset2, elem, name)
@@ -674,3 +691,36 @@ transpose <- function(lst) {
     names(res) <- nms
     res
 }
+
+as_df <- function(x, ...) {
+    stopifnot(is.list(x))
+    if (!length(x)) {
+        structure(list(), names = character(), row.names = integer(), ..., class = "data.frame")
+    } else {
+        structure(x, names = names(x), row.names = seq_along(x[[1L]]), ..., class = "data.frame")
+    }
+}
+
+subset_list <- function(x, subset, select, drop = TRUE, ...) {
+    if (length(unique.default(lengths(x, FALSE))) != 1L) {
+        stop("Every element in input list must have the same length.")
+    }
+
+    if (!missing(subset)) {
+        r <- eval(substitute(subset), x, parent.frame())
+        if (!is.logical(r)) stop("'subset' must be logical.")
+        x <- lapply(x, .subset, r & !is.na(r))
+    }
+
+    if (!missing(select)) {
+        nl <- as.list(seq_along(x))
+        names(nl) <- names(x)
+        x <- .subset(x, eval(substitute(select), nl, parent.frame()))
+    }
+
+    if (drop && length(x) == 1L) x <- x[[1L]]
+
+    x
+}
+
+is_parent_dir <- function(dir, path) substr(path, 1, nchar(dir)) == dir

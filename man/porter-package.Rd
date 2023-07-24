@@ -4,9 +4,9 @@
 \name{porter-package}
 \alias{porter}
 \alias{porter-package}
-\title{porter: What the Package Does (One Line, Title Case)}
+\title{porter: Generate Port Files for Foreign Function Interface for C Libraries}
 \description{
-What the package does (one paragraph).
+Generate port files for parsing header files of C libraries using 'CastXML'.
 }
 \author{
 \strong{Maintainer}: Hongyuan Jia \email{hongyuanjia@cqust.edu.cn} (\href{https://orcid.org/0000-0002-0075-8183}{ORCID})

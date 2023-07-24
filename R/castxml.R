@@ -25,7 +25,7 @@ locate_castxml <- function(patch = FALSE) {
         ))
     }
 
-    res <- castxml("--version", .castxml = found, .capture = TRUE)
+    res <- system3(found, "--version", .capture = TRUE)
 
     if (!is.null(status <- attr(res, "status")) && status != 0L) {
         message(spaste(
@@ -52,7 +52,7 @@ locate_castxml <- function(patch = FALSE) {
         }
 
         # rerun
-        res <- castxml("--version", .castxml = found, .capture = TRUE)
+        res <- system3(.castxml = found, "--version", .capture = TRUE)
 
         if (!is.null(status <- attr(res, "status")) && status != 0L) {
             message(spaste("Still failed to detect CastXML version."))
@@ -73,8 +73,9 @@ locate_castxml <- function(patch = FALSE) {
 
     ver <- reg_match(res[[1L]], "\\d[.]\\d[.]\\d")
 
-    names(dir) <- ver
-    dir
+    res <- normalizePath(found)
+    names(res) <- ver
+    res
 }
 
 #' @export
@@ -252,10 +253,10 @@ list_castxml_rel_files <- function(version = "latest", all = FALSE) {
     }
 
     res <- transpose(res)
+
+    if (all) return(as_df(res, version = version))
+
     attr(res, "version") <- version
-
-    if (all) return(res)
-
     # support arm since v0.4.8
     if (numeric_version(version) < "0.4.8") {
         if (is_windows()) {
@@ -343,10 +344,10 @@ valid_castxml_loc <- function(loc) {
 
 }
 
-castxml <- function(..., .castxml = locate_castxml(), .capture = FALSE) {
+system3 <- function(command, ..., .capture = FALSE) {
     if (.capture) {
-        system2(.castxml, args = c(...), stdout = TRUE, stderr = TRUE)
+        system2(command, args = c(...), stdout = TRUE, stderr = TRUE)
     } else {
-        system2(.castxml, args = c(...))
+        system2(command, args = c(...))
     }
 }

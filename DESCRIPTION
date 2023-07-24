@@ -19,5 +19,8 @@ Collate:
     'utils.R'
     'cache.R'
     'castxml.R'
+    'download.R'
+    'port.R'
     'porter-package.R'
+    'restful.R'
     'zzz.R'
