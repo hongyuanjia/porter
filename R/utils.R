@@ -701,6 +701,8 @@ as_df <- function(x, ...) {
     }
 }
 
+df <- function(...) as_df(list(...))
+
 subset_list <- function(x, subset, select, drop = TRUE, ...) {
     if (length(unique.default(lengths(x, FALSE))) != 1L) {
         stop("Every element in input list must have the same length.")
