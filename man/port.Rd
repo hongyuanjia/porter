@@ -36,7 +36,7 @@ Default: \code{NULL}.}
 executable. Default is used the path found by \code{\link[=locate_castxml]{locate_castxml()}}.}
 }
 \value{
-A named list.
+An \code{dynport} object.
 }
 \description{
 Parse C-family header files using CastXML and gather data from the generated
