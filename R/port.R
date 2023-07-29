@@ -257,6 +257,8 @@ dyncall_sig <- function(type, empty = FALSE) {
             # const int, etc.
             } else if (type$type[[1L]] == "const") {
                 return(bt)
+            } else if (type$type[[1L]] == "[]") {
+                return("p")
             }
         }
 
