@@ -532,10 +532,24 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
         members <- do.call(rbind.data.frame, c(structs$members, unions$members))
         types_tmp <- df(
             type = c(types$def$type, members$type),
-            name = c(types$def$name, members$name)
+            name = c(types$def$name, members$name),
+            file = c(types$def$file,
+                fields$file[match(members$id, fields$id)]
+            )
         )
-        types$func$name <- types_tmp$name[match(types$pointer$id[ind], types_tmp$type)]
+
+        ind <- match(types$pointer$id[ind], types_tmp$type)
+        types$func$name <- types_tmp$name[ind]
+        types$func$file <- types_tmp$file[ind]
         types$func$name[is.na(types$func$name)] <- ""
+
+        # check again and issue warnings if still no matched
+        if (any(empty <- types$func$name == "")) {
+            warning(spaste(
+                "Failed to parse names for function pointers: %s.",
+                .v = spaste("'%s'", .v = types$func$id[empty], .rcoll = ", ")
+            ))
+        }
 
         types$all <- rbind.data.frame(types$all,
             df(
