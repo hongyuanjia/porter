@@ -883,8 +883,6 @@ proc_node_unions <- function(xml, types, fields) {
 
 proc_node_types <- function(xml) {
     type_def <- node_attrs(xml, "Typedef", c("id", "name", "type", "file", "context"))
-    # exclude clang auto-generated data
-    if (!is.null(type_def)) type_def <- type_def[!type_def$file %in% proc_node_builtin(xml), ]
 
     type_base <- node_attrs(xml, "FundamentalType", c("id", "name", "size", "align"))
 
