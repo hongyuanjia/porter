@@ -20,6 +20,7 @@ Collate:
     'cache.R'
     'castxml.R'
     'download.R'
+    'format.R'
     'port.R'
     'porter-package.R'
     'restful.R'

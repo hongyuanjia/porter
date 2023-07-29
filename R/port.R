@@ -198,8 +198,10 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
         if (!is.null(files)) files <- files$name
     }
 
-    list(func = funs, enum = enums, struct = structs, union = unions,
-        funcptr = funptr, file = files
+    list(
+        func = funs, funcptr = funptr,
+        enum = enums, struct = structs, union = unions,
+        file = files
     )
 }
 
