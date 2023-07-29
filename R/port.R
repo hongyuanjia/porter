@@ -143,9 +143,10 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
 
         # no matched
         if (!length(inclu)) {
-            out <- replicate(6, data.frame())
-            names(out) <- c("func", "enum", "struct", "union", "type", "file")
-            return(out)
+            return(list(
+                func = NULL, funcptr = NULL, enum = NULL, struct = NULL,
+                union = NULL, file = NULL
+            ))
         } else {
             subset_by_file <- function(df, files) {
                 if (!is.null(df)) as_df(df[df$file %in% files, ])
