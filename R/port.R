@@ -246,7 +246,7 @@ dyncall_sig <- function(type, empty = FALSE) {
 
     # NOTE: only support function pointer
     if (type$kind[len] == "function") {
-        if (any(type$type[-len] != "*")) {
+        if (any(!type$type[-len] %in% c("*", "[]", "const"))) {
             stop(spaste(
                 "Internal error: found 'function'",
                 "with an invalid qualifier ('%s'['%s']).",
@@ -263,8 +263,8 @@ dyncall_sig <- function(type, empty = FALSE) {
     } else if (len == 2L) {
         if (type$type[[1L]] == "const") {
             type$type[[len]]
-        } else if (type$type[[1L]] == "*") {
-            paste0(type$type, collapse = "")
+        } else if (type$type[[1L]] %in% c("*", "[]")) {
+            paste0("*", type$type[[len]])
         } else {
             stop(spaste(
                 "Internal error: found enum/struct/union",
@@ -561,8 +561,6 @@ proc_node_funs <- function(xml) {
     )
     if (is.null(funs)) return(NULL)
 
-    funs$static <- !is.na(funs$static)
-
     fun_args <- node_attrs(node_funs, "Argument", c("name", "type"), df = FALSE)
     funs$arguments <- lapply(fun_args, function(args) {
         # it is possible that CastXML failed to extract argument names
@@ -588,6 +586,10 @@ proc_node_funs <- function(xml) {
     # check ellipsis
     node_dots <- xml2::xml_find_all(node_funs, "Ellipsis", flatten = FALSE)
     funs$ellipsis <- lengths(node_dots) > 0L
+
+    # only include non-static functions
+    funs <- funs[is.na(funs$static), ]
+    funs$static <- NULL
 
     funs
 }
@@ -826,7 +828,7 @@ proc_node_unions <- function(xml, types, fields) {
 }
 
 proc_node_types <- function(xml) {
-    type_def <- node_attrs(xml, "Typedef", c("id", "name", "type"))
+    type_def <- node_attrs(xml, "Typedef", c("id", "name", "type", "file", "context"))
 
     type_base <- node_attrs(xml, "FundamentalType", c("id", "name", "size", "align"))
 
