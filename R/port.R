@@ -807,9 +807,11 @@ proc_node_structs_unions <- function(xml, kind = c("struct", "union"), types, fi
 
             # remove the duplicated <Struct />
             rem <- idx[which(pre == nxt)]
-            mem <- mem[-rem]
-            nms <- nms[-rem]
-            tps <- tps[-rem]
+            if (length(rem)) {
+                mem <- mem[-rem]
+                nms <- nms[-rem]
+                tps <- tps[-rem]
+            }
 
             # update member data
             structs$members[i] <- list(df(id = mem, name = nms, type = tps))
