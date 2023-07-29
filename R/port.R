@@ -828,6 +828,11 @@ proc_node_structs_unions <- function(xml, kind = c("struct", "union"), types, fi
             pre <- structs_unions$id[ind_union]
             # ids of the following fields
             nxt <- tps[idx + 1L]
+            # in case the type refers to an elaborated one
+            if (!is.null(types$elaborated)) {
+                nxt <- types$elaborated$type[match(nxt, types$elaborated$id)]
+            }
+
             # check if there are no following fields
             if (any(no <- is.na(nxt))) {
                 # ignore
