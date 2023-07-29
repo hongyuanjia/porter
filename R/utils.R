@@ -695,9 +695,15 @@ transpose <- function(lst, flatten = TRUE) {
 as_df <- function(x, ...) {
     stopifnot(is.list(x))
     if (!length(x)) {
-        structure(list(), names = character(), row.names = integer(), ..., class = "data.frame")
+        structure(list(), names = character(), row.names = integer(),
+            ..., class = "data.frame"
+        )
     } else {
-        structure(x, names = names(x), row.names = seq_along(x[[1L]]), ..., class = "data.frame")
+        # Using NULL for the value resets the row names to seq_len(nrow(x)),
+        # regarded as 'automatic'.
+        structure(x, names = names(x), row.names = c(NA_integer_, -length(x[[1L]])),
+            ..., class = "data.frame"
+        )
     }
 }
 
