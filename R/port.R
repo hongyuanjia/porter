@@ -20,19 +20,19 @@
 #'        Default: `NULL`.
 #'
 #' @param castxml A single string indicating the file path of the CastXML
-#'        executable. Default is used the path found by [locate_castxml()].
+#'        executable. Default is used the path found by `Sys.which("castxml")`.
 #'
 #' @return An `dynport` object.
 #'
 #' @export
-port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = locate_castxml()) {
+port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = Sys.which("castxml")) {
     if (!is_string(castxml) || !file.exists(castxml)) {
         stop("Argument 'castxml' must be a file path of CastXML executable.")
     }
     if (!is_string(header) || !file.exists(header)) {
         stop("Argument 'header' must be a file path.")
     } else if (file_ext(header) %in% c("hpp", "hh")) {
-        warning(paste0(
+        warning(paste(
             "Argument 'header' seems to be a C++ header file",
             "which is currently not fully supported. Parsing errors may occur."
         ))
@@ -51,7 +51,7 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = lo
     out <- tempfile("porter-", fileext = ".xml")
 
     # run castxml and read the generated XML file
-    proc <- system3(castxml, "--castxml-output=1", cflags, "-o", out, header, .capture = FALSE)
+    proc <- system3(castxml, "--castxml-output=1", cflags, "-o", out, header)
     if (proc != 0L || !file.exists(out)) {
         stop("CastXML errors. Please check input arguments, especially 'header' and 'cflags'.")
     }

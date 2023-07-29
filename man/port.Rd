@@ -10,7 +10,7 @@ port(
   limit = TRUE,
   keep = FALSE,
   cflags = NULL,
-  castxml = locate_castxml()
+  castxml = Sys.which("castxml")
 )
 }
 \arguments{
@@ -33,7 +33,7 @@ same name. Default: \code{FALSE}.}
 Default: \code{NULL}.}
 
 \item{castxml}{A single string indicating the file path of the CastXML
-executable. Default is used the path found by \code{\link[=locate_castxml]{locate_castxml()}}.}
+executable. Default is used the path found by \code{Sys.which("castxml")}.}
 }
 \value{
 An \code{dynport} object.
