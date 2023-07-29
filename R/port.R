@@ -566,7 +566,9 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
 }
 
 proc_node_files <- function(xml) {
-    node_attrs(xml, "File", c("id", "name"))
+    files <- node_attrs(xml, "File", c("id", "name"))
+    if (is.null(files)) return(NULL)
+    files[files$name != "<builtin>", ]
 }
 
 proc_node_fields <- function(xml) {
