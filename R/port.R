@@ -303,7 +303,7 @@ proc_type_funs <- function(types, funs) {
     returns <- list(id = unique(funs$returns))
     returns$type <- lapply(returns$id, find_basetype, types = types$all)
     funs$returns <- lapply(match(funs$returns, returns$id),
-        function(ind) list(id = returns$id[ind], type = returns$type[ind])
+        function(ind) c(list(id = returns$id[ind]), returns$type[[ind]])
     )
 
     args <- list(id = unique(unlist(
