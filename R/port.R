@@ -72,12 +72,8 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = lo
         # use limit as a regex
         pattern <- limit
     }
-    data <- port_xml(out, dirs, pattern)
+    data <- port_xml(out, dirs, pattern, clean = TRUE)
 
-    data["file"] <- NULL
-    data["type"] <- NULL
-
-    # TODO: remove non-useful columns
     data
 }
 
@@ -93,6 +89,9 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = lo
 #'        functions/enums/structs/unions match that pattern is returned.
 #'        Default: `NULL`.
 #'
+#' @param clean If `TRUE`, the id, context and file data are kept. Otherwise,
+#'        they are removed. Default: `FALSE`.
+#'
 #' @return A named list of six elements:
 #'
 #' - `func`: function data
@@ -104,7 +103,7 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = lo
 #'
 #' @keywords internal
 #' @export
-port_xml <- function(xml, dirs = NULL, pattern = NULL) {
+port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
     if (!"xml_document" %in% class(xml)) xml <- xml2::read_xml(xml)
 
     # check if the root is GCC_XML or CastXML
@@ -170,6 +169,33 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL) {
         structs <- subset_by_pattern(structs, pattern)
         unions  <- subset_by_pattern(unions,  pattern)
         funptr  <- subset_by_pattern(funptr,  pattern)
+        if (!is.null(files)) {
+            files <- files[files$id %in% unique(
+                c(funs$file, enums$file, structs$file, unions$file, funptr$file)), ]
+        }
+    }
+
+    if (!is_flag(clean)) stop("Argument 'clean' should be either TRUE or FALSE.")
+    if (clean) {
+        remove_col <- function(df, cols) {
+            if (is.null(df)) return(NULL)
+            df[cols] <- NULL
+            df
+        }
+        funs    <- remove_col(funs,    c("id", "context", "file"))
+        enums   <- remove_col(enums,   c("id", "context", "file"))
+        structs <- remove_col(structs, c("id", "context", "file"))
+        unions  <- remove_col(unions,  c("id", "context", "file"))
+        funptr  <- remove_col(funptr,  c("id", "context", "file"))
+
+        funs$returns     <- lapply(funs$returns,     remove_col, "id")
+        funs$arguments   <- lapply(funs$arguments,   remove_col, "id")
+        structs$members  <- lapply(structs$members,  remove_col, "id")
+        unions$members   <- lapply(unions$members,   remove_col, "id")
+        funptr$returns   <- lapply(funptr$returns,   remove_col, "id")
+        funptr$arguments <- lapply(funptr$arguments, remove_col, "id")
+
+        if (!is.null(files)) files <- files$name
     }
 
     list(func = funs, enum = enums, struct = structs, union = unions,
