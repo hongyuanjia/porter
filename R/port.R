@@ -604,7 +604,8 @@ proc_node_funs <- function(xml) {
     fun_args <- node_attrs(node_funs, "Argument", c("name", "type"), df = FALSE)
     funs$arguments <- lapply(fun_args, function(args) {
         # it is possible that CastXML failed to extract argument names
-        if (length(args$type) && anyNA(args$name)) {
+        if (!length(args$type)) return(NULL)
+        if (anyNA(args$name)) {
             mis <- is.na(args$name)
 
             # use this letters to generate random argument names
