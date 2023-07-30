@@ -27,4 +27,29 @@ test_that("port() works", {
     expect_null(p$file)
 
     unlink(header)
+
+    skip_on_cran()
+
+    header_sdl <- file.path(get_src_sdl2(), "include", "SDL.h")
+    expect_s3_class(p <- port(header_sdl), "dynport")
+    expect_named(p, c("func", "funcptr", "enum", "struct", "union", "file"))
+    expect_s3_class(p$func,     "data.frame")
+    expect_s3_class(p$funcptr,  "data.frame")
+    expect_s3_class(p$enum,     "data.frame")
+    expect_s3_class(p$struct,   "data.frame")
+    expect_s3_class(p$union,    "data.frame")
+    expect_type(p$file, "character")
+
+    expect_named(p$func,    c("name", "returns", "arguments", "ellipsis"))
+    expect_named(p$funcptr, c("name", "returns", "arguments"))
+    expect_named(p$enum,    c("name", "values", "size", "align"))
+    expect_named(p$struct,  c("name", "members", "size", "align"))
+    expect_named(p$union,   c("name", "members", "size", "align"))
+
+    expect_equal(nrow(p$func),    855L)
+    expect_equal(nrow(p$funcptr), 27L)
+    expect_equal(nrow(p$enum),    55L)
+    expect_equal(nrow(p$struct),  92L)
+    expect_equal(nrow(p$union),   5L)
+    expect_equal(length(p$file),  46L)
 })
