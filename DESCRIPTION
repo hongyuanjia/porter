@@ -19,6 +19,7 @@ Collate:
     'utils.R'
     'cache.R'
     'castxml.R'
+    'check.R'
     'download.R'
     'format.R'
     'port.R'
