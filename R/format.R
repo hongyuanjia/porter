@@ -23,7 +23,7 @@ print.dynport <- function(x, n = 5L, ...) {
 
     print_field <- function(field, name) {
         if (is.null(x[[name]])) {
-            cat(name, ": <None>\n")
+            cat(field, ": <None>\n")
         } else {
             val <- x[[name]][seq_len(min(nrow(x[[name]]), n)), ]
             str <- switch(name,
