@@ -233,7 +233,7 @@ get_json_elem <- function(rawjson, ...) {
     res
 }
 
-get_bin_paths <- function(path = getOption("porter.castxml.path")) {
+get_bin_paths <- function(path = getOption("porter.castxml")) {
     sys <- if (is_windows()) {
         Sys.getenv("APPDATA")
     } else if (is_linux()) {
@@ -248,6 +248,14 @@ get_bin_paths <- function(path = getOption("porter.castxml.path")) {
 
     paths <- c(path, sys)
     path.expand(paths[paths != ""])
+}
+
+system3 <- function(command, ..., .capture = FALSE) {
+    if (.capture) {
+        system2(command, args = c(...), stdout = TRUE, stderr = TRUE)
+    } else {
+        system2(command, args = c(...))
+    }
 }
 
 exec_ext <- function(x) if (is_windows()) paste0(x, ".exe") else x
