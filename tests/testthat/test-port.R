@@ -25,4 +25,6 @@ test_that("port() works", {
     expect_null(p$struct)
     expect_null(p$union)
     expect_null(p$file)
+
+    unlink(header)
 })

@@ -156,7 +156,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
             structs <- subset_by_file(structs, inclu)
             unions  <- subset_by_file(unions,  inclu)
             funptr  <- subset_by_file(funptr,  inclu)
-            files   <- subset_by_file(files,   inclu)
+            files   <- as_df(files[is_tar, ])
         }
     }
 
@@ -170,6 +170,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
         structs <- subset_by_pattern(structs, pattern)
         unions  <- subset_by_pattern(unions,  pattern)
         funptr  <- subset_by_pattern(funptr,  pattern)
+
         if (!is.null(files)) {
             files <- files[files$id %in% unique(
                 c(funs$file, enums$file, structs$file, unions$file, funptr$file)), ]
