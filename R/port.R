@@ -124,7 +124,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
     types <- merge_all_types(types, enums, structs, unions, fields)
 
     # get function pointers
-    funptr <- types$func
+    funptrs <- types$func
 
     # find base types for all function arguments and return values
     funs <- proc_type_funs(types, funs)
@@ -155,7 +155,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
             enums   <- subset_by_file(enums,   inclu)
             structs <- subset_by_file(structs, inclu)
             unions  <- subset_by_file(unions,  inclu)
-            funptr  <- subset_by_file(funptr,  inclu)
+            funptrs <- subset_by_file(funptrs,  inclu)
             files   <- as_df(files[is_tar, ])
         }
     }
@@ -169,11 +169,11 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
         enums   <- subset_by_pattern(enums,   pattern)
         structs <- subset_by_pattern(structs, pattern)
         unions  <- subset_by_pattern(unions,  pattern)
-        funptr  <- subset_by_pattern(funptr,  pattern)
+        funptrs <- subset_by_pattern(funptrs,  pattern)
 
         if (!is.null(files)) {
             files <- files[files$id %in% unique(
-                c(funs$file, enums$file, structs$file, unions$file, funptr$file)), ]
+                c(funs$file, enums$file, structs$file, unions$file, funptrs$file)), ]
         }
     }
 
@@ -188,20 +188,20 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
         enums   <- remove_col(enums,   c("id", "context", "file"))
         structs <- remove_col(structs, c("id", "context", "file"))
         unions  <- remove_col(unions,  c("id", "context", "file"))
-        funptr  <- remove_col(funptr,  c("id", "context", "file"))
+        funptrs <- remove_col(funptrs,  c("id", "context", "file"))
 
-        funs$returns     <- lapply(funs$returns,     remove_col, "id")
-        funs$arguments   <- lapply(funs$arguments,   remove_col, "id")
-        structs$members  <- lapply(structs$members,  remove_col, "id")
-        unions$members   <- lapply(unions$members,   remove_col, "id")
-        funptr$returns   <- lapply(funptr$returns,   remove_col, "id")
-        funptr$arguments <- lapply(funptr$arguments, remove_col, "id")
+        funs$returns      <- lapply(funs$returns,     remove_col, "id")
+        funs$arguments    <- lapply(funs$arguments,   remove_col, "id")
+        structs$members   <- lapply(structs$members,  remove_col, "id")
+        unions$members    <- lapply(unions$members,   remove_col, "id")
+        funptrs$returns   <- lapply(funptrs$returns,   remove_col, "id")
+        funptrs$arguments <- lapply(funptrs$arguments, remove_col, "id")
 
         if (!is.null(files)) files <- files$name
     }
 
     list(
-        func = funs, funcptr = funptr,
+        func = funs, funcptr = funptrs,
         enum = enums, struct = structs, union = unions,
         file = files
     )
@@ -598,7 +598,9 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
         )
 
         # process argument and return types
-        types$func <- proc_type_funs(types, types$func)[, c("id", "name", "returns", "arguments")]
+        types$func <- proc_type_funs(types, types$func)[
+            , c("id", "name", "returns", "arguments", "file")
+        ]
     }
 
     types
@@ -747,7 +749,7 @@ proc_node_enums <- function(xml, types) {
     enum_vals <- node_attrs(node_enums, "EnumValue", c("name", "init"), df = FALSE)
     enums$values <- lapply(enum_vals, as_df)
 
-    enums
+    enums[, c("name", "values", "size", "align", "file")]
 }
 
 proc_node_structs_unions <- function(xml, kind = c("struct", "union"), types, fields) {
