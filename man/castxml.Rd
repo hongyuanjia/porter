@@ -85,7 +85,7 @@ not via \href{https://repology.org/project/castxml/versions}{Repology}.
 }
 }
 \examples{
-\donotrun{
+\dontrun{
 download_castxml("0.5.0", tempdir())
 
 install_castxml("latest")

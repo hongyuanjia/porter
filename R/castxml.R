@@ -67,7 +67,7 @@
 #'   executable, or `NULL` if no CastXML is found.
 #'
 #' @examples
-#' \donotrun{
+#' \dontrun{
 #' download_castxml("0.5.0", tempdir())
 #'
 #' install_castxml("latest")
