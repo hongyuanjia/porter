@@ -79,18 +79,18 @@ p <- port_set(p,
 p
 #> Package: SDL2 
 #> Version: 2.28.0 
-#> Library/
+#> Library:
 #>     SDL
 #>     SDL-2.28
 #>     SDL-2.28.so.0 
-#> Function/
+#> Function:
 #>     SDL_GetPlatform()Z;
 #>     SDL_malloc(L)p size;
 #>     SDL_calloc(LL)p nmemb size;
 #>     SDL_realloc(pL)p mem size;
 #>     SDL_free(p)v mem; 
 #>     ... [# Truncated with 850 more items]
-#> FuncPtr/
+#> FuncPtr:
 #>     SDL_malloc_func(L)p;
 #>     SDL_calloc_func(LL)p;
 #>     SDL_realloc_func(pL)p;
@@ -121,14 +121,14 @@ p
 #>     SDL_THREAD_PRIORITY_HIGH=2
 #>     SDL_THREAD_PRIORITY_TIME_CRITICAL=3 
 #>     ... [# Truncated with 50 more items]
-#> Struct/
+#> Struct:
 #>     _SDL_iconv_t{};
 #>     SDL_AssertData{iIZZiZ*<SDL_AssertData>}always_ignore trigger_count condition filename linenum function next;
 #>     SDL_atomic_t{i}value;
 #>     SDL_mutex{};
 #>     SDL_semaphore{}; 
 #>     ... [# Truncated with 87 more items]
-#> Union/
+#> Union:
 #>     SDL_Event{I<SDL_CommonEvent><SDL_DisplayEvent><SDL_WindowEvent><SDL_KeyboardEvent><SDL_TextEditingEvent><SDL_TextEditingExtEvent><SDL_TextInputEvent><SDL_MouseMotionEvent><SDL_MouseButtonEvent><SDL_MouseWheelEvent><SDL_JoyAxisEvent><SDL_JoyBallEvent><SDL_JoyHatEvent><SDL_JoyButtonEvent><SDL_JoyDeviceEvent><SDL_JoyBatteryEvent><SDL_ControllerAxisEvent><SDL_ControllerButtonEvent><SDL_ControllerDeviceEvent><SDL_ControllerTouchpadEvent><SDL_ControllerSensorEvent><SDL_AudioDeviceEvent><SDL_SensorEvent><SDL_QuitEvent><SDL_UserEvent><SDL_SysWMEvent><SDL_TouchFingerEvent><SDL_MultiGestureEvent><SDL_DollarGestureEvent><SDL_DropEvent>p}type common display window key edit editExt text motion button wheel jaxis jball jhat jbutton jdevice jbattery caxis cbutton cdevice ctouchpad csensor adevice sensor quit user syswm tfinger mgesture dgesture drop padding;
 #>     SDL_HapticEffect{S<SDL_HapticConstant><SDL_HapticPeriodic><SDL_HapticCondition><SDL_HapticRamp><SDL_HapticLeftRight><SDL_HapticCustom>}type constant periodic condition ramp leftright custom;
 #>     SDL_WindowShapeParams{C<SDL_Color>}binarizationCutoff colorKey;
