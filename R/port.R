@@ -903,7 +903,10 @@ node_attrs <- function(nodes, name = NULL, attrs = c("id", "name"), df = TRUE) {
 #' Print summary of an `dynport` object
 #'
 #' @param x A `dynport`.
-#' @param n The number of items to print
+#'
+#' @param n The number of items to print. Default: `5`.
+#'
+#' @param ... Other arguments to pass. Reserved for future use.
 #'
 #' @return `x` invisibly.
 #'

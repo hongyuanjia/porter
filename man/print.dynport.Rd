@@ -9,7 +9,9 @@
 \arguments{
 \item{x}{A \code{dynport}.}
 
-\item{n}{The number of items to print}
+\item{n}{The number of items to print. Default: \code{5}.}
+
+\item{...}{Other arguments to pass. Reserved for future use.}
 }
 \value{
 \code{x} invisibly.
