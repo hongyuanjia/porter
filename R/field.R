@@ -191,7 +191,7 @@ format.dynportfield <- function(x, raw = FALSE, ...) {
     }
 }
 
-format_dynportfield_meta <- function(x, raw = FALSE...) {
+format_dynportfield_meta <- function(x, raw = FALSE, ...) {
     if (is.null(x$value)) {
         ""
     } else if (raw) {
@@ -201,7 +201,7 @@ format_dynportfield_meta <- function(x, raw = FALSE...) {
     }
 }
 
-format_dynportfield_data <- function(x, raw = FALSE...) {
+format_dynportfield_data <- function(x, raw = FALSE, ...) {
     value <- switch(x$key,
         Function = format_sig_func(x$value),
         FuncPtr  = format_sig_func(x$value),
