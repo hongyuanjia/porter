@@ -16,7 +16,7 @@ are always written before all other customized fields. Default:
 \code{TRUE}.}
 }
 \value{
-A single string of the file path.
+A single string of the file path, invisibly.
 }
 \description{
 Write \code{dynport} file

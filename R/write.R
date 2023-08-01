@@ -8,8 +8,7 @@
 #'        are always written before all other customized fields. Default:
 #'        `TRUE`.
 #' @return
-#' A single string of the file path.
-#'
+#' A single string of the file path, invisibly.
 #' @export
 port_write <- function(port, file, reorder = TRUE) {
     if (!inherits(port, "dynport")) {
@@ -64,5 +63,5 @@ port_write <- function(port, file, reorder = TRUE) {
     mat <- matrix(out, nrow = 1L, dimnames = list(NULL, names(out)))
     write.dcf(mat, file, keep.white = names(out))
 
-    normalizePath(file, "/")
+    invisible(normalizePath(file, "/"))
 }
