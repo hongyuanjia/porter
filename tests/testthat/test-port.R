@@ -13,7 +13,7 @@ test_that("port() works", {
     # can stop if keep is not flag
     expect_error(port(header, keep = ""), "keep")
     # can stop if CastXML errors
-    expect_error(port(testthat::test_path("../../DESCRIPTION")), "input")
+    expect_error(port(file.path(R.home(), "README")), "input")
     # can warn if C++ header
     expect_warning(port({ h <- tempfile(fileext = ".hpp"); writeLines("", h); h }), "C\\+\\+")
 
