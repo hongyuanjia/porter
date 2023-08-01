@@ -350,7 +350,7 @@ read_url <- function(url) {
     } else {
         # a hack to extract the URL from a connection
         key <- reg_match(
-            capture.output(print(url))[2L],
+            utils::capture.output(print(url))[2L],
             '\"(?<key>[^"]+)\"$', 1L
         )["key"]
     }

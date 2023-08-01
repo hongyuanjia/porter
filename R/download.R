@@ -8,7 +8,7 @@ download_src_sdl2 <- function(version = "latest", dir = tempdir()) {
         rel <- github_release(repo, tag = paste0("release-", version))
     }
 
-    item <- subset.data.frame(rel$assets, name == sprintf("SDL2-%s.zip", rel$name))
+    item <- rel$assets[rel$assets == sprintf("SDL2-%s.zip", rel$name), ]
     item <- as.list(item)
 
     if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)

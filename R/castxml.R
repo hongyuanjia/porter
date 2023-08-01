@@ -355,7 +355,7 @@ download_zlib_dll <- function(dir) {
 
     zlib_zip <- file.path(tempdir(), "zlib.zip")
     download_file(url, zlib_zip)
-    unzip(zlib_zip, exdir = dir)
+    utils::unzip(zlib_zip, exdir = dir)
 }
 
 list_castxml_rel_files <- function(version = "latest", all = FALSE) {
