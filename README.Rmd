@@ -11,6 +11,7 @@ knitr::opts_chunk$set(
   fig.path = "man/figures/README-",
   out.width = "100%"
 )
+library(porter)
 ```
 
 # porter
@@ -18,37 +19,87 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of porter is to ...
+The goal of {porter} is to generate port files for {[rdyncall]}(https://github.com/hongyuanjia/rdyncall)
+to support Foreign Function Interface (FFI) for C Libraries in R. It uses
+[CastXML](https://github.com/CastXML/CastXML), a C-family abstract syntax tree
+XML output tool to parse C header files.
 
 ## Installation
 
 You can install the development version of porter like so:
 
 ``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+remotes::install_github("hongyuanjia/port")
 ```
 
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
+### Manage CastXML installation
 
-```{r example}
-library(porter)
-## basic example code
+You can use `install_castxml()` to install CastXML. It downloads the pre-built
+binaries of CastXML together with the LLVM/Clang dependencies via the
+[CastXML Superbuild](https://github.com/CastXML/CastXMLSuperbuild) project.
+
+`locate_castxml()` will return the current CastXML in use:
+
+```{r example, eval = FALSE}
+install_castxml("latest")
+
+locate_castxml()
+#>                                         0.5.0
+#> "C:\\Users\\hongy\\scoop\\shims\\castxml.exe"
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+Instead of using `install_castxml()`, you may directly use your package manager
+to install CastXML, as it may already provide a `castxml` package.
 
-```{r cars}
-summary(cars)
+- On Windows, you can use [Scoop](https://scoop.sh/) to install CastXML via:
+  `scoop install main/castxml"
+- On macOS, you can use [Homebrew](https://brew.sh/) to install CastXML via:
+  `brew install castxml"
+- On Linux, you can check if your system package manager provides CastXML or
+  not via [Repology](https://repology.org/project/castxml/versions).
+
+### Generate port files for C libraries
+
+Take the [SDL2](https://www.libsdl.org/) library as an example. After
+downloading the SDL2 [source](https://github.com/libsdl-org/SDL/releases), run
+`port()` with the path of SDL2 header file (here `dir` is directory of SDL2
+source):
+
+```{r sdl2}
+version <- "2.28.0"
+dir <- file.path(tempdir(), paste0("SDL2-", version))
+if (!dir.exists(dir)) {
+  zipfile <- porter:::download_src_sdl2(version)
+  unzip(zipfile, exdir = tempdir())
+}
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this. You could also use GitHub Actions to re-render `README.Rmd` every time you push. An example workflow can be found here: <https://github.com/r-lib/actions/tree/v1/examples>.
+```{r port}
+p <- port(file.path(dir, "include", "SDL.h"))
 
-You can also embed plots, for example:
+p <- port_set(p,
+  Package = "SDL2",
+  Version = "2.28.0",
+  Library = c("SDL", "SDL-1.2", "SDL-1.2.so.0")
+)
 
-```{r pressure, echo = FALSE}
-plot(pressure)
+p
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+Use `port_write()` to save the port file.
+
+```{r write}
+port_write(p, file.path(tempdir(), "SDL2.dynport"))
+```
+
+## Author
+
+Hongyuan Jia
+
+## License
+
+The project is released under the terms of MIT License.
+
+Copyright © 2023 Hongyuan Jia
