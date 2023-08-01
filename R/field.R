@@ -215,7 +215,7 @@ format_dynportfield_data <- function(x, raw = FALSE, ...) {
 }
 
 format_field <- function(key, value, empty = FALSE, show_key = TRUE, sep = "\n") {
-    key <- if (show_key) paste0(key, if (length(value) > 2L) "/" else ":") else ""
+    key <- if (show_key) paste0(key, if (key == "Enum") "/" else ":") else ""
     if (!length(value)) {
         if (empty) paste(key, "") else ""
     } else if (length(value) == 1L) {
