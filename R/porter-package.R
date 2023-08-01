@@ -6,5 +6,3 @@
 NULL
 
 .global <- new.env()
-setPackageName("porter", .global)
-.global$cache <- cache_new()
