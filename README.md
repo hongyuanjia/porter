@@ -7,8 +7,8 @@
 <!-- badges: end -->
 
 The goal of {porter} is to generate port files for
-{\[rdyncall\]}(<https://github.com/hongyuanjia/rdyncall>) to support
-Foreign Function Interface (FFI) for C Libraries in R. It uses
+[rdyncall](https://github.com/hongyuanjia/rdyncall) to support Foreign
+Function Interface (FFI) for C Libraries in R. It uses
 [CastXML](https://github.com/CastXML/CastXML), a C-family abstract
 syntax tree XML output tool to parse C header files.
 
@@ -73,7 +73,7 @@ p <- port(file.path(dir, "include", "SDL.h"))
 p <- port_set(p,
   Package = "SDL2",
   Version = "2.28.0",
-  Library = c("SDL", "SDL-1.2", "SDL-1.2.so.0")
+  Library = c("SDL", "SDL-2.28", "SDL-2.28.so.0")
 )
 
 p
@@ -81,8 +81,8 @@ p
 #> Version: 2.28.0 
 #> Library/
 #>     SDL
-#>     SDL-1.2
-#>     SDL-1.2.so.0 
+#>     SDL-2.28
+#>     SDL-2.28.so.0 
 #> Function/
 #>     SDL_GetPlatform()Z;
 #>     SDL_malloc(L)p size;
