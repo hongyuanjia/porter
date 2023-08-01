@@ -23,12 +23,12 @@ they are removed. Default: \code{FALSE}.}
 \value{
 A named list of six elements:
 \itemize{
-\item \code{func}: function data
-\item \code{enum}: enumeration data
-\item \code{struct}: struct data
-\item \code{union}: union data
-\item \code{funcptr}: function pointer data
-\item \code{file}: file data
+\item \code{Function}: function data
+\item \code{FuncPtr}: function pointer data
+\item \code{Enum}: enumeration data
+\item \code{Struct}: struct data
+\item \code{Union}: union data
+\item \code{File}: file data
 }
 }
 \description{
