@@ -77,9 +77,9 @@ Instead of using \code{install_castxml()}, you may directly use your package
 manager to install CastXML, as it may already provide a \code{castxml} package.
 \itemize{
 \item On Windows, you can use \href{https://scoop.sh/}{Scoop} to install CastXML via:
-`scoop install main/castxml"
+\verb{scoop install main/castxml}
 \item On macOS, you can use \href{https://brew.sh/}{Homebrew} to install CastXML via:
-`brew install castxml"
+\verb{brew install castxml}
 \item On Linux, you can check if your system package manager provides CastXML or
 not via \href{https://repology.org/project/castxml/versions}{Repology}.
 }
