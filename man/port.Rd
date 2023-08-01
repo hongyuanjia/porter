@@ -42,3 +42,7 @@ An \code{dynport} object.
 Parse C-family header files using CastXML and gather data from the generated
 XML.
 }
+\note{
+Please note that functions defined as macros are not supported, yet.
+See: https://github.com/CastXML/CastXML/issues/21
+}

@@ -24,6 +24,9 @@
 #'
 #' @return An `dynport` object.
 #'
+#' @note
+#' Please note that functions defined as macros are not supported, yet.
+#' See: https://github.com/CastXML/CastXML/issues/21
 #' @export
 port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = Sys.which("castxml")) {
     if (!is_string(castxml) || !file.exists(castxml)) {
