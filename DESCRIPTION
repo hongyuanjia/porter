@@ -26,4 +26,5 @@ Collate:
     'porter-package.R'
     'restful.R'
     'signature.R'
+    'write.R'
     'zzz.R'
