@@ -54,9 +54,9 @@ Instead of using `install_castxml()`, you may directly use your package manager
 to install CastXML, as it may already provide a `castxml` package.
 
 - On Windows, you can use [Scoop](https://scoop.sh/) to install CastXML via:
-  `scoop install main/castxml"
+  `scoop install main/castxml`
 - On macOS, you can use [Homebrew](https://brew.sh/) to install CastXML via:
-  `brew install castxml"
+  `brew install castxml`
 - On Linux, you can check if your system package manager provides CastXML or
   not via [Repology](https://repology.org/project/castxml/versions).
 
