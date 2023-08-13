@@ -659,7 +659,7 @@ proc_node_enums <- function(xml, types) {
         enums$values[[i]] <- df(name = val$name, init = init)
     }
 
-    enums[, c("name", "values", "size", "align", "file")]
+    enums[, c("id", "name", "values", "size", "align", "file")]
 }
 
 proc_node_structs_unions <- function(xml, kind = c("struct", "union"), types, fields) {
