@@ -43,6 +43,13 @@ test_that("rdyncall-compatible ABI details are preserved", {
     expect_match(txt, "Variadic: vf\\(Z\\)i fmt;", fixed = FALSE)
     expect_match(txt, "Plain\\{i\\[3\\]III\\}a b:5 :0 c:7;", fixed = FALSE)
     expect_match(txt, "PackedAligned\\{cd\\}c d @packed @align\\(8\\);", fixed = FALSE)
+
+    validation <- port_validate_symbols(p, c("fixed", "other_symbol"))
+    expect_equal(validation$name, c("fixed", "vf"))
+    expect_equal(validation$field, c("Function", "Variadic"))
+    expect_equal(validation$status, c("available", "missing"))
+    expect_error(port_validate_symbols(p, NA_character_), "symbols")
+    expect_error(port_validate_symbols(p, "fixed", lib = "c"), "reserved")
 })
 
 test_that("macro diagnostics use CastXML preprocessor output", {
@@ -173,25 +180,4 @@ test_that("R headers can be converted despite anonymous CastXML members", {
 
     report <- port_report(p)
     expect_true(any(report$kind == "unsupported_export_name"))
-
-    if (requireNamespace("rdyncall", quietly = TRUE)) {
-        supports_current_dynport <- try({
-            probe <- tempfile(fileext = ".dynport")
-            writeLines(c(
-                "Package: Probe",
-                "Library: c",
-                "Variadic:",
-                "    printf(Z)i fmt;"
-            ), probe)
-            rdyncall:::dynport_read(probe)
-        }, silent = TRUE)
-
-        if (!inherits(supports_current_dynport, "try-error")) {
-            parsed <- rdyncall:::dynport_read(file)
-            expect_equal(as.character(parsed$Package), "R")
-            expect_true("R_IsNA" %in% names(parsed$Function))
-            expect_true("Rprintf" %in% names(parsed$Variadic))
-            expect_true("SEXPREC" %in% names(parsed$Struct))
-        }
-    }
 })

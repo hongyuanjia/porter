@@ -2,19 +2,21 @@
 % Please edit documentation in R/port.R
 \name{port_validate_symbols}
 \alias{port_validate_symbols}
-\title{Validate generated function symbols against a loaded dynamic library}
+\title{Validate generated function symbols against an exported symbol list}
 \usage{
-port_validate_symbols(port, lib)
+port_validate_symbols(port, symbols, ...)
 }
 \arguments{
 \item{port}{A \code{dynport} object created by \code{\link[=port]{port()}}.}
 
-\item{lib}{A library handle returned by \code{rdyncall::dynload()}, or a library
-name/path accepted by \code{rdyncall::dynload()}.}
+\item{symbols}{A character vector of exported symbol names to compare
+against the generated \code{Function} and \code{Variadic} entries.}
+
+\item{...}{Reserved for future extensions.}
 }
 \value{
 A data frame with symbol validation status.
 }
 \description{
-Validate generated function symbols against a loaded dynamic library
+Validate generated function symbols against an exported symbol list
 }

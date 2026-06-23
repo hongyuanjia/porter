@@ -15,10 +15,7 @@ Depends:
 Imports:
     xml2
 Suggests: 
-    rdyncall,
     testthat (>= 3.0.0)
-Remotes:
-    hongyuanjia/rdyncall
 Config/testthat/edition: 3
 Collate: 
     'utils.R'
