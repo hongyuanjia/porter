@@ -50,6 +50,7 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = Sy
     if (!is_flag(keep)) {
         stop("Argument 'keep' should be either TRUE or FALSE.")
     }
+    cflags <- normalize_castxml_cflags(cflags)
 
     castxml <- normalizePath(castxml, mustWork = TRUE)
     out <- tempfile("porter-", fileext = ".xml")
@@ -100,6 +101,30 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = Sy
     out <- structure(l, class = "dynport")
     attr(out, "report") <- report
     out
+}
+
+normalize_castxml_cflags <- function(cflags,
+                                    sysname = Sys.info()[["sysname"]],
+                                    sdkroot = Sys.getenv("SDKROOT", unset = ""),
+                                    xcrun = Sys.which("xcrun"),
+                                    xcrun_sdk = NULL) {
+    if (!identical(sysname, "Darwin")) return(cflags)
+    if (length(cflags) && any(startsWith(cflags, "-isysroot"))) return(cflags)
+
+    if (nzchar(sdkroot) && dir.exists(sdkroot)) {
+        return(c(cflags, "-isysroot", normalizePath(sdkroot, mustWork = TRUE)))
+    }
+
+    if (!nzchar(xcrun)) return(cflags)
+    if (is.null(xcrun_sdk)) {
+        xcrun_sdk <- try(system2(xcrun, "--show-sdk-path", stdout = TRUE), silent = TRUE)
+    }
+    if (inherits(xcrun_sdk, "try-error") || !length(xcrun_sdk) || !nzchar(xcrun_sdk[[1L]])) {
+        return(cflags)
+    }
+    if (!dir.exists(xcrun_sdk[[1L]])) return(cflags)
+
+    c(cflags, "-isysroot", normalizePath(xcrun_sdk[[1L]], mustWork = TRUE))
 }
 
 #' Inspect diagnostics recorded while generating a dynport

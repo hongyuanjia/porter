@@ -84,3 +84,40 @@ test_that("port() works", {
     expect_equal(nrow(p$Union$value),    3L)
     expect_equal(length(p$File$value),   46L)
 })
+
+test_that("normalize_castxml_cflags() adds macOS SDK only when needed", {
+    cflags <- "-I/include"
+    sdkroot <- tempfile("sdkroot")
+    xcrun_sdk <- tempfile("xcrun-sdk")
+    dir.create(sdkroot)
+    dir.create(xcrun_sdk)
+
+    expect_identical(
+        normalize_castxml_cflags(cflags, sysname = "Linux"),
+        cflags
+    )
+    expect_identical(
+        normalize_castxml_cflags(NULL, sysname = "Darwin", sdkroot = "", xcrun = "", xcrun_sdk = xcrun_sdk),
+        NULL
+    )
+    expect_identical(
+        normalize_castxml_cflags(c(cflags, "-isysroot", sdkroot), sysname = "Darwin", sdkroot = xcrun_sdk),
+        c(cflags, "-isysroot", sdkroot)
+    )
+    expect_identical(
+        normalize_castxml_cflags(c(cflags, paste0("-isysroot", sdkroot)), sysname = "Darwin", sdkroot = xcrun_sdk),
+        c(cflags, paste0("-isysroot", sdkroot))
+    )
+    expect_identical(
+        normalize_castxml_cflags(cflags, sysname = "Darwin", sdkroot = sdkroot, xcrun = ""),
+        c(cflags, "-isysroot", normalizePath(sdkroot, mustWork = TRUE))
+    )
+    expect_identical(
+        normalize_castxml_cflags(cflags, sysname = "Darwin", sdkroot = "", xcrun = "xcrun", xcrun_sdk = xcrun_sdk),
+        c(cflags, "-isysroot", normalizePath(xcrun_sdk, mustWork = TRUE))
+    )
+    expect_identical(
+        normalize_castxml_cflags(cflags, sysname = "Darwin", sdkroot = "", xcrun = "", xcrun_sdk = xcrun_sdk),
+        cflags
+    )
+})
