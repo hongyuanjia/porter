@@ -5,10 +5,9 @@
 
 ## R CMD check results
 
-0 errors | 0 warnings | 3 notes
+0 errors | 0 warnings | 2 notes
 
 * This is a new submission.
-* The local macOS check reported "unable to verify current time".
 * The local macOS check skipped HTML validation because the installed HTML Tidy
   is not recent enough.
 
