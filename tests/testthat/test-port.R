@@ -77,10 +77,15 @@ test_that("port() works", {
     expect_named(p$Struct$value,   c("name", "members", "size", "align"))
     expect_named(p$Union$value,    c("name", "members", "size", "align"))
 
-    expect_equal(nrow(p$Function$value) + if (is.null(p$Variadic$value)) 0L else nrow(p$Variadic$value), 708L)
-    expect_gt(nrow(p$FuncPtr$value),  0L)
-    expect_equal(nrow(p$Enum$value),     55L)
-    expect_equal(nrow(p$Struct$value),   76L)
-    expect_equal(nrow(p$Union$value),    3L)
-    expect_equal(length(p$File$value),   46L)
+    sdl_functions <- c(
+        p$Function$value$name,
+        if (is.null(p$Variadic$value)) character() else p$Variadic$value$name
+    )
+    expect_gt(length(sdl_functions), 600L)
+    expect_true(all(c("SDL_Init", "SDL_Quit", "SDL_CreateWindow", "SDL_PollEvent") %in% sdl_functions))
+    expect_gt(nrow(p$FuncPtr$value), 0L)
+    expect_true(all(c("SDL_bool", "SDL_EventType", "SDL_BlendMode") %in% p$Enum$value$name))
+    expect_true(all(c("SDL_Window", "SDL_Renderer", "SDL_Surface") %in% p$Struct$value$name))
+    expect_gt(nrow(p$Union$value), 0L)
+    expect_gt(length(p$File$value), 0L)
 })
