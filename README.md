@@ -69,7 +69,7 @@ p <- port_set(p,
   Library = "example"
 )
 
-print(p)
+p
 ```
 
 Use `port_write()` to save the port file.
