@@ -11,7 +11,7 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Depends:
-    R (>= 3.1.0)
+    R (>= 3.6.0)
 Imports:
     xml2
 Suggests: 
@@ -22,11 +22,9 @@ Collate:
     'cache.R'
     'castxml.R'
     'check.R'
-    'download.R'
     'field.R'
     'port.R'
     'porter-package.R'
-    'restful.R'
     'signature.R'
     'write.R'
     'zzz.R'
