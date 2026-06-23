@@ -72,7 +72,7 @@ github_token <- function(token = NULL) {
         token <- if (length(token)) token[1L] else NULL
     }
 
-    if (!nchar(token)) return(NULL)
+    if (is.null(token) || !nchar(token)) return(NULL)
 
     if (!grepl("^gh[pousr]_[A-Za-z0-9_]{36,251}$", token) &&
         !grepl("[[:xdigit:]]{40}", token)) {

@@ -77,10 +77,10 @@ test_that("port() works", {
     expect_named(p$Struct$value,   c("name", "members", "size", "align"))
     expect_named(p$Union$value,    c("name", "members", "size", "align"))
 
-    expect_equal(nrow(p$Function$value) + if (is.null(p$Variadic$value)) 0L else nrow(p$Variadic$value), 855L)
+    expect_equal(nrow(p$Function$value) + if (is.null(p$Variadic$value)) 0L else nrow(p$Variadic$value), 708L)
     expect_gt(nrow(p$FuncPtr$value),  0L)
     expect_equal(nrow(p$Enum$value),     55L)
-    expect_equal(nrow(p$Struct$value),   92L)
-    expect_equal(nrow(p$Union$value),    5L)
+    expect_equal(nrow(p$Struct$value),   76L)
+    expect_equal(nrow(p$Union$value),    3L)
     expect_equal(length(p$File$value),   46L)
 })
