@@ -128,6 +128,24 @@ port_check_field_df <- function(x, key, cols) {
                     "two columns ['name' (character), 'type' (list of 'dynporttype')].",
                     .v = list(name, key)
                 ))
+            } else if (type == "member" &&
+                any(
+                    !imap(x$value[[name]], is.null) &
+                    !imap(x$value[[name]], function(df) {
+                        is.data.frame(df) &&
+                        all(c("name", "type") %in% names(df)) &&
+                        is.character(df$name) && !anyNA(df$name) &&
+                        all(imap(df$type, inherits, "dynporttype")) &&
+                        (!"offset" %in% names(df) || is.integer(df$offset)) &&
+                        (!"bits" %in% names(df) || is.integer(df$bits))
+                    })
+                )
+            ) {
+                stop(spaste(
+                    "'%s' column in '%s' field should be a list of data.frames with",
+                    "at least two columns ['name' (character), 'type' (list of 'dynporttype')].",
+                    .v = list(name, key)
+                ))
             } else if (type == "name_init" &&
                 any(
                     !imap(x$value[[name]], is.null) &
@@ -157,6 +175,11 @@ port_check_field_function <- function(x, ...) {
         c("name" = "chr", "returns" = "type", "arguments" = "name_type", "ellipsis" = "lgl")
     )
 }
+port_check_field_variadic <- function(x, ...) {
+    port_check_field_df(x, "Variadic",
+        c("name" = "chr", "returns" = "type", "arguments" = "name_type")
+    )
+}
 port_check_field_funcptr <- function(x, ...) {
     port_check_field_df(x, "FuncPtr",
         c("name" = "chr", "returns" = "type", "arguments" = "types")
@@ -164,12 +187,12 @@ port_check_field_funcptr <- function(x, ...) {
 }
 port_check_field_struct <- function(x, ...) {
     port_check_field_df(x, "Struct",
-        c("name" = "chr", "members" = "name_type", "size" = "int", "align" = "int")
+        c("name" = "chr", "members" = "member", "size" = "int", "align" = "int")
     )
 }
 port_check_field_union <- function(x, ...) {
     port_check_field_df(x, "Union",
-        c("name" = "chr", "members" = "name_type", "size" = "int", "align" = "int")
+        c("name" = "chr", "members" = "member", "size" = "int", "align" = "int")
     )
 }
 port_check_field_enum <- function(x, ...) {
