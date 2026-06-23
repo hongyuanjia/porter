@@ -33,7 +33,7 @@ Package-manager installations are usually found by \code{Sys.which("castxml")}
 when their shims or binary directories are on \code{PATH}.
 }
 \examples{
-\dontrun{
+\dontshow{if (!is.null(porter::locate_castxml())) withAutoprint(\{ # examplesIf}
 locate_castxml()
-}
+\dontshow{\}) # examplesIf}
 }

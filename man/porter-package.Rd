@@ -4,9 +4,9 @@
 \name{porter-package}
 \alias{porter}
 \alias{porter-package}
-\title{porter: Generate Port Files for Foreign Function Interface for C Libraries}
+\title{porter: Generate Port Files for C Libraries}
 \description{
-Generate port files for parsing header files of C libraries using 'CastXML'.
+Generate port files for foreign function interfaces to C libraries by parsing C-family header files with 'CastXML'.
 }
 \seealso{
 Useful links:
@@ -17,7 +17,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Hongyuan Jia \email{hongyuanjia@cqust.edu.cn} (\href{https://orcid.org/0000-0002-0075-8183}{ORCID})
+\strong{Maintainer}: Hongyuan Jia \email{hongyuanjia@cqust.edu.cn} (\href{https://orcid.org/0000-0002-0075-8183}{ORCID}) [copyright holder]
 
 }
 \keyword{internal}

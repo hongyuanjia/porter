@@ -24,6 +24,15 @@
 #'
 #' @return An `dynport` object.
 #'
+#' @examplesIf !is.null(porter::locate_castxml())
+#' header <- tempfile(fileext = ".h")
+#' writeLines(c(
+#'     "typedef struct Point { int x; double y; } Point;",
+#'     "int add(int a, int b);"
+#' ), header)
+#'
+#' port(header)
+#'
 #' @note
 #' Please note that function-like macros are not converted to callable entries.
 #' They are reported by `port_report()` as unsupported macros.
@@ -153,6 +162,17 @@ xcrun_show_sdk_path <- function(xcrun) {
 #'
 #' @return A data frame with diagnostic entries, including source file and line
 #'        when available.
+#'
+#' @examplesIf !is.null(porter::locate_castxml())
+#' header <- tempfile(fileext = ".h")
+#' writeLines(c(
+#'     "#define ADD_ONE(x) ((x) + 1)",
+#'     "int add(int a, int b);"
+#' ), header)
+#'
+#' p <- port(header)
+#' port_report(p)
+#' port_report(p, "unsupported_macro")
 #' @export
 port_report <- function(port, kind = NULL) {
     if (!inherits(port, "dynport")) {
@@ -172,6 +192,13 @@ port_report <- function(port, kind = NULL) {
 #' @param ... Reserved for future extensions.
 #'
 #' @return A data frame with symbol validation status.
+#'
+#' @examplesIf !is.null(porter::locate_castxml())
+#' header <- tempfile(fileext = ".h")
+#' writeLines("int add(int a, int b);", header)
+#'
+#' p <- port(header)
+#' port_validate_symbols(p, c("add", "other_symbol"))
 #' @export
 port_validate_symbols <- function(port, symbols, ...) {
     if (!inherits(port, "dynport")) {
@@ -230,6 +257,14 @@ port_validate_symbols <- function(port, symbols, ...) {
 #' - `Struct`: struct data
 #' - `Union`: union data
 #' - `File`: file data
+#'
+#' @examplesIf !is.null(porter::locate_castxml())
+#' header <- tempfile(fileext = ".h")
+#' writeLines("int add(int a, int b);", header)
+#'
+#' p <- port(header, keep = TRUE)
+#' xml <- paste0(tools::file_path_sans_ext(header), ".xml")
+#' port_xml(xml)
 #'
 #' @keywords internal
 #' @export
@@ -1442,6 +1477,13 @@ node_attrs <- function(nodes, name = NULL, attrs = c("id", "name"), df = TRUE) {
 #' @param ... Other arguments to pass. Reserved for future use.
 #'
 #' @return `x` invisibly.
+#'
+#' @examplesIf !is.null(porter::locate_castxml())
+#' header <- tempfile(fileext = ".h")
+#' writeLines("int add(int a, int b);", header)
+#'
+#' p <- port(header)
+#' print(p)
 #'
 #' @export
 print.dynport <- function(x, n = 5L, ...) {

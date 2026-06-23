@@ -15,7 +15,13 @@ syntax tree XML output tool to parse C header files.
 
 ## Installation
 
-You can install the development version of porter like so:
+You can install porter from CRAN with:
+
+``` r
+install.packages("porter")
+```
+
+You can install the development version of porter from GitHub with:
 
 ``` r
 remotes::install_github("hongyuanjia/porter")
@@ -54,6 +60,8 @@ locate_castxml()
 Run `port()` with the path of a C header file:
 
 ``` r
+library(porter)
+
 header <- tempfile(fileext = ".h")
 writeLines(c(
   "typedef struct Point { int x; double y; } Point;",
@@ -70,6 +78,15 @@ p <- port_set(p,
 )
 
 p
+#> Package: Example
+#> Version: 1.0
+#> Library: example
+#> Function: add(ii)i a b;
+#> Variadic: message(Z)i fmt;
+#> FuncPtr: <None>
+#> Enum: <None>
+#> Struct: Point{id}x y;
+#> Union: <None>
 ```
 
 Use `port_write()` to save the port file.

@@ -23,10 +23,8 @@
 #'   the CastXML executable, and the name is the detected version. Returns `NULL`
 #'   if no usable CastXML executable is found.
 #'
-#' @examples
-#' \dontrun{
+#' @examplesIf !is.null(porter::locate_castxml())
 #' locate_castxml()
-#' }
 #' @export
 locate_castxml <- function(path = getOption("porter.castxml")) {
     candidates <- if (is.null(path) || length(path) == 0L || is.na(path[[1L]])) {

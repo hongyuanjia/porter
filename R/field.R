@@ -51,6 +51,16 @@ PORT_FIELDS <- c(
 #'
 #' `port_set()` returns a new `dynport` object, invisibly.
 #'
+#' @examplesIf !is.null(porter::locate_castxml())
+#' header <- tempfile(fileext = ".h")
+#' writeLines("int add(int a, int b);", header)
+#'
+#' p <- port(header)
+#' port_fields(p)
+#' port_has(p, c("Package", "Function"))
+#' port_get(p, "Function")
+#' port_set(p, Package = "Example", Version = "1.0", Library = "example")
+#'
 #' @rdname port_fields
 #' @export
 port_fields <- function(port) {
@@ -163,7 +173,7 @@ print_dynportfield_meta <- function(x, ...) {
     if (is.null(x$value)) {
         cat(x$key, ": <Unknown>\n", sep = "")
     } else {
-        cat(format_dynportfield_meta(x), "\n")
+        cat(format_dynportfield_meta(x), "\n", sep = "")
     }
 }
 
@@ -173,7 +183,7 @@ print_dynportfield_data <- function(x, n = 5L, ...) {
     } else {
         tmp <- x
         tmp$value <- x$value[seq_len(min(nrow(x$value), n)), ]
-        cat(format_dynportfield_data(tmp), "\n")
+        cat(format_dynportfield_data(tmp), "\n", sep = "")
 
         if ((left <- nrow(x$value) - n) > 0L) {
             cat("    ... [# Truncated with ", left, " more item", ngettext(left, "", "s"), "]\n", sep = "")

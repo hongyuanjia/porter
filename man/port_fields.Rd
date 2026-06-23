@@ -67,3 +67,15 @@ will be kept as \code{NULL} instead of removal: \code{Package}, \code{Version}, 
 \code{Function}, \code{FuncPtr}, \code{Enum}, \code{Struct} and \code{Union}. Other fields are treated
 as user customize fields and will be removed when setting to \code{NULL}.`
 }
+\examples{
+\dontshow{if (!is.null(porter::locate_castxml())) withAutoprint(\{ # examplesIf}
+header <- tempfile(fileext = ".h")
+writeLines("int add(int a, int b);", header)
+
+p <- port(header)
+port_fields(p)
+port_has(p, c("Package", "Function"))
+port_get(p, "Function")
+port_set(p, Package = "Example", Version = "1.0", Library = "example")
+\dontshow{\}) # examplesIf}
+}

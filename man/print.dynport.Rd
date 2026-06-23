@@ -19,3 +19,12 @@
 \description{
 Print summary of an \code{dynport} object
 }
+\examples{
+\dontshow{if (!is.null(porter::locate_castxml())) withAutoprint(\{ # examplesIf}
+header <- tempfile(fileext = ".h")
+writeLines("int add(int a, int b);", header)
+
+p <- port(header)
+print(p)
+\dontshow{\}) # examplesIf}
+}

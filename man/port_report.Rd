@@ -18,3 +18,16 @@ when available.
 \description{
 Inspect diagnostics recorded while generating a dynport
 }
+\examples{
+\dontshow{if (!is.null(porter::locate_castxml())) withAutoprint(\{ # examplesIf}
+header <- tempfile(fileext = ".h")
+writeLines(c(
+    "#define ADD_ONE(x) ((x) + 1)",
+    "int add(int a, int b);"
+), header)
+
+p <- port(header)
+port_report(p)
+port_report(p, "unsupported_macro")
+\dontshow{\}) # examplesIf}
+}

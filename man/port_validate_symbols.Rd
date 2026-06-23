@@ -20,3 +20,12 @@ A data frame with symbol validation status.
 \description{
 Validate generated function symbols against an exported symbol list
 }
+\examples{
+\dontshow{if (!is.null(porter::locate_castxml())) withAutoprint(\{ # examplesIf}
+header <- tempfile(fileext = ".h")
+writeLines("int add(int a, int b);", header)
+
+p <- port(header)
+port_validate_symbols(p, c("add", "other_symbol"))
+\dontshow{\}) # examplesIf}
+}

@@ -9,6 +9,14 @@
 #'        `TRUE`.
 #' @return
 #' A single string of the file path, invisibly.
+#'
+#' @examplesIf !is.null(porter::locate_castxml())
+#' header <- tempfile(fileext = ".h")
+#' writeLines("int add(int a, int b);", header)
+#'
+#' p <- port(header)
+#' p <- port_set(p, Package = "Example", Version = "1.0", Library = "example")
+#' port_write(p, file.path(tempdir(), "Example.dynport"))
 #' @export
 port_write <- function(port, file, reorder = TRUE) {
     if (!inherits(port, "dynport")) {

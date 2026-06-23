@@ -47,3 +47,14 @@ Please note that function-like macros are not converted to callable entries.
 They are reported by \code{port_report()} as unsupported macros.
 See: https://github.com/CastXML/CastXML/issues/21
 }
+\examples{
+\dontshow{if (!is.null(porter::locate_castxml())) withAutoprint(\{ # examplesIf}
+header <- tempfile(fileext = ".h")
+writeLines(c(
+    "typedef struct Point { int x; double y; } Point;",
+    "int add(int a, int b);"
+), header)
+
+port(header)
+\dontshow{\}) # examplesIf}
+}
