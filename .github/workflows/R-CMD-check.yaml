@@ -14,7 +14,7 @@ jobs:
   R-CMD-check:
     runs-on: ubuntu-latest
     env:
-      NOT_CRAN: "false"
+      NOT_CRAN: "true"
     steps:
       - uses: actions/checkout@v4
 

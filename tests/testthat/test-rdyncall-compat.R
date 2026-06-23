@@ -7,8 +7,13 @@ test_that("rdyncall-compatible ABI details are preserved", {
         "int fixed(int x);",
         "int vf(const char *fmt, ...);",
         "typedef int (*callback_t)(int x, ...);",
+        "long double unsupported_long_double(void);",
+        "struct _Hidden { int x; };",
+        "enum Boolish { TRUE = 1, PORTER_OK = 2 };",
+        "enum TooWide { TOO_LOW = -2147483648, TOO_WIDE_OK = 1 };",
         "struct Plain { int a[3]; unsigned b:5; unsigned :0; unsigned c:7; };",
-        "struct __attribute__((packed, aligned(8))) PackedAligned { char c; double d; };"
+        "struct __attribute__((packed, aligned(8))) PackedAligned { char c; double d; };",
+        "struct HasAnon { int tag; union { int i; double d; }; };"
     ), header)
 
     p <- port(header, limit = TRUE)
@@ -16,10 +21,19 @@ test_that("rdyncall-compatible ABI details are preserved", {
     expect_equal(p$Function$value$name, "fixed")
     expect_false(any(p$Function$value$ellipsis))
     expect_equal(p$Variadic$value$name, "vf")
+    expect_false("unsupported_long_double" %in% p$Function$value$name)
+    expect_false("_Hidden" %in% p$Struct$value$name)
+    expect_false("HasAnon" %in% p$Struct$value$name)
+    expect_equal(p$Enum$value$values[[which(p$Enum$value$name == "Boolish")]]$name, "PORTER_OK")
 
     report <- port_report(p)
     expect_true(any(report$kind == "unsupported_macro" & report$name == "MACRO_FN"))
     expect_true(any(report$kind == "unsupported_variadic_funcptr" & report$name == "callback_t"))
+    expect_true(any(report$kind == "unsupported_signature" & report$name == "unsupported_long_double"))
+    expect_true(any(report$kind == "unsupported_signature" & report$name == "HasAnon"))
+    expect_true(any(report$kind == "unsupported_export_name" & report$name == "_Hidden"))
+    expect_true(any(report$kind == "unsupported_export_name" & report$name == "TRUE"))
+    expect_true(any(report$kind == "unsupported_enum_value" & report$name == "TOO_LOW"))
 
     file <- tempfile(fileext = ".dynport")
     suppressWarnings(port_write(p, file))
@@ -87,4 +101,97 @@ test_that("macro diagnostics report CastXML preprocessor failures", {
     expect_equal(report$kind, c("macro_scan_failed", "macro_scan_failed"))
     expect_equal(report$name, c("-dD", "-dM"))
     expect_true(all(is.na(report$line)))
+})
+
+test_that("function type typedef pointers are written as pointers", {
+    skip_if(Sys.which("castxml") == "", "CastXML is not available")
+
+    header <- tempfile(fileext = ".h")
+    writeLines(c(
+        "typedef int bare_fn_t(int x);",
+        "struct Holder { bare_fn_t *cb; };",
+        "int fixed(int x);"
+    ), header)
+
+    p <- port(header, limit = TRUE)
+
+    expect_equal(port_get(p, "Function")$name, "fixed")
+    expect_false("bare_fn_t" %in% port_get(p, "FuncPtr")$name)
+    expect_equal(port_get(p, "Struct")$name, "Holder")
+
+    p <- port_set(p, Package = "T", Version = "1.0", Library = "T")
+    file <- tempfile(fileext = ".dynport")
+    suppressWarnings(port_write(p, file))
+    txt <- paste(readLines(file), collapse = "\n")
+
+    expect_match(txt, "Holder\\{p\\}cb;", fixed = FALSE)
+})
+
+test_that("R headers can be converted despite anonymous CastXML members", {
+    skip_if(Sys.which("castxml") == "", "CastXML is not available")
+
+    inc <- file.path(R.home(), "include")
+    headers <- file.path(inc, c("R.h", "Rinternals.h"))
+    skip_if_not(all(file.exists(headers)), "R headers are not available")
+
+    header <- tempfile(fileext = ".h")
+    writeLines(c("#include <R.h>", "#include <Rinternals.h>"), header)
+    on.exit(unlink(header), add = TRUE)
+
+    cflags <- paste0("-I", inc)
+    if (identical(Sys.info()[["sysname"]], "Darwin") && nzchar(Sys.which("xcrun"))) {
+        sdk <- try(system2("xcrun", "--show-sdk-path", stdout = TRUE), silent = TRUE)
+        if (!inherits(sdk, "try-error") && length(sdk) && nzchar(sdk[[1L]])) {
+            cflags <- c(cflags, "-isysroot", sdk[[1L]])
+        }
+    }
+
+    p <- suppressWarnings(port(header, limit = inc, cflags = cflags))
+
+    expect_true("Function" %in% port_fields(p))
+    expect_true("Variadic" %in% port_fields(p))
+    expect_true("R_IsNA" %in% port_get(p, "Function")$name)
+    expect_true("Rprintf" %in% port_get(p, "Variadic")$name)
+    expect_true("SEXPREC" %in% port_get(p, "Struct")$name)
+    expect_true(any(port_report(p)$kind == "unsupported_macro"))
+
+    p <- port_set(
+        p,
+        Package = "R",
+        Version = as.character(getRversion()),
+        Library = "R"
+    )
+    file <- tempfile(fileext = ".dynport")
+    suppressWarnings(port_write(p, file))
+    expect_true(file.exists(file))
+
+    text <- readLines(file, warn = FALSE)
+    expect_false(any(grepl("R_allocLD", text, fixed = TRUE)))
+    expect_false(any(grepl("_DllInfo", text, fixed = TRUE)))
+    expect_false(any(grepl("FALSE=", text, fixed = TRUE)))
+    expect_false(any(grepl("TRUE=", text, fixed = TRUE)))
+
+    report <- port_report(p)
+    expect_true(any(report$kind == "unsupported_export_name"))
+
+    if (requireNamespace("rdyncall", quietly = TRUE)) {
+        supports_current_dynport <- try({
+            probe <- tempfile(fileext = ".dynport")
+            writeLines(c(
+                "Package: Probe",
+                "Library: c",
+                "Variadic:",
+                "    printf(Z)i fmt;"
+            ), probe)
+            rdyncall:::dynport_read(probe)
+        }, silent = TRUE)
+
+        if (!inherits(supports_current_dynport, "try-error")) {
+            parsed <- rdyncall:::dynport_read(file)
+            expect_equal(as.character(parsed$Package), "R")
+            expect_true("R_IsNA" %in% names(parsed$Function))
+            expect_true("Rprintf" %in% names(parsed$Variadic))
+            expect_true("SEXPREC" %in% names(parsed$Struct))
+        }
+    }
 })

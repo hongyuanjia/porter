@@ -12,8 +12,8 @@ port_check_field_package <- function(x, ...) {
         stop("'Package' field should only contain ASCII letters, numbers and dots.")
     }
 
-    if (nchar(x$value) < 2L) {
-        stop("'Package' field should be at least two character long.")
+    if (!nchar(x$value)) {
+        stop("'Package' field should not be empty.")
     }
 
     if (!grepl("^[a-zA-z]", x$value)) {

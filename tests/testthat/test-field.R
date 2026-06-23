@@ -29,6 +29,7 @@ test_that("port_set() works", {
     expect_s3_class(p <- port(header_sdl), "dynport")
 
     expect_error(port_set(p, "Package", ".SDL2"))
+    expect_s3_class(port_set(p, "Package", "R"), "dynport")
     expect_s3_class(p <- port_set(p, "Package", "SDL2"), "dynport")
     expect_equal(port_get(p, "Package"), "SDL2")
     expect_equal(port_get(p, c("Package", "Version")), list(Package = "SDL2", Version = NULL))

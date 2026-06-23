@@ -77,10 +77,10 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = Sy
         pattern <- limit
     }
     data <- port_xml(out, dirs, pattern, clean = TRUE)
-    report <- attr(data, "report", exact = TRUE)
-    attr(data, "report") <- NULL
+    parsed <- pull_report(data)
+    data <- parsed$data
     report <- combine_reports(
-        report,
+        parsed$report,
         scan_castxml_function_like_macros(header, cflags, castxml, dirs, pattern)
     )
 
@@ -223,7 +223,9 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
     fields  <- proc_node_fields(xml)
     types   <- proc_node_types(xml)
     funs    <- proc_node_funs(xml)
-    enums   <- proc_node_enums(xml,   types)
+    enums   <- pull_report(proc_node_enums(xml, types, files))
+    report  <- enums$report
+    enums   <- enums$data
     structs <- proc_node_structs(xml, types, fields)
     unions  <- proc_node_unions(xml,  types, fields)
 
@@ -236,7 +238,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
     # find base types for all function arguments and return values
     funs <- proc_type_funs(types, funs)
 
-    report <- empty_report()
+    report <- combine_reports(report)
 
     variadic <- NULL
     if (!is.null(funs)) {
@@ -267,6 +269,15 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
     layout <- mark_unsupported_layouts(unions, "union", files)
     unions <- layout$data
     report <- combine_reports(report, layout$report)
+
+    drop_unnamed <- function(df) {
+        if (is.null(df)) return(NULL)
+        as_df(df[!is.na(df$name) & nzchar(df$name), , drop = FALSE])
+    }
+    enums <- drop_unnamed(enums)
+    structs <- drop_unnamed(structs)
+    unions <- drop_unnamed(unions)
+    funptrs <- drop_unnamed(funptrs)
 
     # only consider files in the same folder as the input header file
     if (!is.null(dirs)) {
@@ -313,6 +324,21 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
                 c(funs$file, variadic$file, enums$file, structs$file, unions$file, funptrs$file)), ]
         }
     }
+
+    filtered <- filter_rdyncall_output(
+        list(
+            Function = funs, Variadic = variadic, FuncPtr = funptrs,
+            Enum = enums, Struct = structs, Union = unions
+        ),
+        files
+    )
+    funs <- filtered$data$Function
+    variadic <- filtered$data$Variadic
+    funptrs <- filtered$data$FuncPtr
+    enums <- filtered$data$Enum
+    structs <- filtered$data$Struct
+    unions <- filtered$data$Union
+    report <- combine_reports(report, filtered$report)
 
     if (!is_flag(clean)) stop("Argument 'clean' should be either TRUE or FALSE.")
     if (clean) {
@@ -580,22 +606,37 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
     }
 
     if (!is.null(types$func)) {
-        # all function types are function pointers
-        ind <- match(types$func$id, types$pointer$type)
+        types$all <- rbind.data.frame(types$all,
+            df(
+                id = types$func$id, name = "",
+                type = NA_character_, kind = "function"
+            )
+        )
 
-        # just in case
-        if (any(mis <- is.na(ind))) {
-            stop(spaste(
-                "Found function types not defined as pointers: [%s]",
-                .v = spaste("'%s'", .v = types$func[mis]),
-                .vcoll = ", "
-            ))
+        # Only function types directly referenced by a PointerType are written
+        # as FuncPtr entries. Function-type typedefs remain in types$all so
+        # chains such as PointerType -> Typedef -> FunctionType resolve to p.
+        ind <- match(types$func$id, types$pointer$type)
+        types$func <- types$func[!is.na(ind), , drop = FALSE]
+        ind <- ind[!is.na(ind)]
+
+        if (!nrow(types$func)) {
+            types$func <- NULL
+            return(types)
         }
 
         # there are only 2 possible ways that function pointers can appear:
         # a. in Typedef
         # b. as a member in Struct/Union
-        members <- do.call(rbind.data.frame, c(structs$members, unions$members))
+        members_list <- c(
+            if (!is.null(structs)) structs$members else NULL,
+            if (!is.null(unions)) unions$members else NULL
+        )
+        members <- if (length(members_list)) {
+            do.call(rbind.data.frame, members_list)
+        } else {
+            df(id = character(), name = character(), type = character())
+        }
         types_tmp <- df(
             type = c(types$def$type, members$type),
             name = c(types$def$name, members$name),
@@ -616,13 +657,6 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
                 .v = spaste("'%s'", .v = types$func$id[empty], .rcoll = ", ")
             ))
         }
-
-        types$all <- rbind.data.frame(types$all,
-            df(
-                id = types$func$id, name = types$func$name,
-                type = NA_character_, kind = "function"
-            )
-        )
 
         # process argument and return types
         types$func <- proc_type_funs(types, types$func)[
@@ -712,6 +746,7 @@ proc_node_funs <- function(xml) {
 correct_struct_names <- function(structs, types, fields = NULL) {
     # NOTE: It is possible that some enums/structs/unions have empty names
     #       in the XML. Should use Typedef to get the full names
+    structs$name[is.na(structs$name)] <- ""
     if (any(empty <- structs$name == "")) {
         # this is the gccxml output
         if (is.null(types$elaborated)) {
@@ -722,16 +757,11 @@ correct_struct_names <- function(structs, types, fields = NULL) {
         # The elaborated types should be used to find the actual typedefs
         } else {
             ind <- match(structs$id[empty], types$elaborated$type)
-            if (anyNA(ind)) {
-                stop(spaste(
-                    "Internal error: found struct(s) without a elaborated type ('%s').",
-                    .v = structs$id[empty][is.na(ind)], .vcoll = " "
-                ))
-            }
-            ids <- types$elaborated$id
+            ids <- rep(NA_character_, length(ind))
+            ids[!is.na(ind)] <- types$elaborated$id[ind[!is.na(ind)]]
         }
 
-        ind <- match(ids[ind], types$def$type)
+        ind <- match(ids, types$def$type)
         structs$name[which(empty)[!is.na(ind)]] <- types$def$name[ind[!is.na(ind)]]
 
         # check again and try to match using fields
@@ -752,18 +782,13 @@ correct_struct_names <- function(structs, types, fields = NULL) {
             structs$name[which(empty)[!is.na(ind)]] <- fields$name[ind[!is.na(ind)]]
         }
 
-        # check again and issue warnings if still no matched
-        if (any(empty <- structs$name == "")) {
-            warning(spaste(
-                "Failed to parse names for structs/unions: %s.",
-                .v = spaste("'%s'", .v = structs$id[empty], .rcoll = ", ")
-            ))
-        }
+        # Remaining empty names are anonymous internal types. Keep them unnamed;
+        # public dynport output filters them before writing.
     }
     structs
 }
 
-proc_node_enums <- function(xml, types) {
+proc_node_enums <- function(xml, types, files = NULL) {
     node_enums <- xml2::xml_find_all(xml, "Enumeration")
     enums <- node_attrs(node_enums,
         attrs = c("id", "name", "context", "size", "align", "file")
@@ -779,22 +804,35 @@ proc_node_enums <- function(xml, types) {
     enums$size <- bits_to_bytes(enums$size)
     enums$align <- bits_to_bytes(enums$align)
 
+    report <- empty_report()
     enum_vals <- node_attrs(node_enums, "EnumValue", c("name", "init"), df = FALSE)
     enums$values <- vector("list", nrow(enums))
     for (i in seq_len(nrow(enums))) {
         val <- .subset2(enum_vals, i)
         # check if init value is not an integer
-        init <- as.integer(val$init)
+        init <- suppressWarnings(as.integer(val$init))
         if (anyNA(init)) {
-            stop(spaste("Internal error: failed to convert initial values for",
-                "enum '%s' to integers: [%s=%s]", .vcoll = ", ",
-                .v = list(enums$name[[i]], val$name[is.na(init)], val$init[is.na(init)])
+            bad <- is.na(init)
+            file <- enums$file[[i]]
+            if (!is.null(files)) file <- files$name[match(file, files$id)]
+            report <- combine_reports(report, new_report(
+                "unsupported_enum_value", val$name[bad], file,
+                sprintf(
+                    "enum member value cannot be represented as an R integer and was not written: %s",
+                    val$init[bad]
+                )
             ))
+            keep <- !is.na(init)
+            val$name <- val$name[keep]
+            val$init <- val$init[keep]
+            init <- init[keep]
         }
         enums$values[[i]] <- df(name = val$name, init = init)
     }
 
-    enums[, c("id", "name", "values", "size", "align", "file")]
+    enums <- enums[, c("id", "name", "values", "size", "align", "file")]
+    attr(enums, "report") <- report
+    enums
 }
 
 proc_node_structs_unions <- function(xml, kind = c("struct", "union"), types, fields) {
@@ -819,14 +857,22 @@ proc_node_structs_unions <- function(xml, kind = c("struct", "union"), types, fi
 
     # get field member list
     members <- strsplit(structs$members, " ", fixed = TRUE)
+    ignored_members <- c(
+        xml2::xml_attr(xml2::xml_find_all(xml, "Unimplemented"), "id"),
+        xml2::xml_attr(xml2::xml_find_all(xml, "IndirectField"), "id")
+    )
+    ignored_members <- ignored_members[!is.na(ignored_members)]
 
     # cache for all structs and unions id/name
     # needed only when there are members that are another structs or unions
     structs_unions <- NULL
 
     for (i in seq_len(nrow(structs))) {
+        mem <- members[[i]]
+        mem <- mem[!mem %in% ignored_members]
+
         # if there is no members, remove member data of that struct
-        if (length(mem <- members[[i]]) == 1L && is.na(mem)) {
+        if (!length(mem) || (length(mem) == 1L && is.na(mem))) {
             structs$members[i] <- list(NULL)
             next
         }
@@ -1035,6 +1081,127 @@ format_array_type <- function(array) {
     len <- max - min + 1L
     len[is.na(len) | len < 1L] <- NA_integer_
     ifelse(is.na(len), "[]", sprintf("[%d]", len))
+}
+
+filter_rdyncall_output <- function(data, files = NULL) {
+    report <- empty_report()
+
+    file_names <- function(file) {
+        if (is.null(files) || is.null(file)) return(rep(NA_character_, length(file)))
+        out <- files$name[match(file, files$id)]
+        out[is.na(out)] <- NA_character_
+        out
+    }
+
+    valid_export_name <- function(name) {
+        !is.na(name) & nzchar(name) & name == make.names(name)
+    }
+
+    type_references_valid_names <- function(type) {
+        if (!inherits(type, "dynporttype")) return(TRUE)
+        named <- type$kind %in% c("enum", "struct", "union")
+        names <- gsub("^<(.*)>$", "\\1", type$type[named])
+        !any(!valid_export_name(names))
+    }
+
+    type_has_writable_signature <- function(type, empty = FALSE, array = FALSE) {
+        dyncall_sig(type, empty = empty, array = array)
+        type_references_valid_names(type)
+    }
+
+    filter_export_names <- function(df, field) {
+        if (is.null(df)) return(df)
+        keep <- valid_export_name(df$name)
+        if (any(!keep)) {
+            report <<- combine_reports(report, new_report(
+                "unsupported_export_name", df$name[!keep], file_names(df$file[!keep]),
+                sprintf("%s name is not a valid R export name and was not written", field)
+            ))
+        }
+        as_df(df[keep, , drop = FALSE])
+    }
+
+    filter_function_signatures <- function(df, field) {
+        if (is.null(df)) return(df)
+        keep <- vapply(seq_len(nrow(df)), function(i) {
+            ret <- df$returns[[i]]
+            if (!inherits(ret, "dynporttype") && !is.null(ret$type)) ret <- ret$type
+            args <- df$arguments[[i]]
+            arg_types <- if (!length(args)) list() else args$type
+
+            !inherits(try({
+                if (!type_has_writable_signature(ret, empty = TRUE)) stop("invalid type name")
+                ok <- vapply(arg_types, type_has_writable_signature, logical(1), empty = FALSE)
+                if (any(!ok)) stop("invalid type name")
+            }, silent = TRUE), "try-error")
+        }, logical(1))
+        if (any(!keep)) {
+            report <<- combine_reports(report, new_report(
+                "unsupported_signature", df$name[!keep], file_names(df$file[!keep]),
+                sprintf("%s signature cannot be written as a rdyncall dynport signature", field)
+            ))
+        }
+        as_df(df[keep, , drop = FALSE])
+    }
+
+    filter_aggregate_signatures <- function(df, field) {
+        if (is.null(df)) return(df)
+        keep <- vapply(seq_len(nrow(df)), function(i) {
+            mem <- df$members[[i]]
+            if (!length(mem$type)) return(TRUE)
+            !inherits(try({
+                ok <- vapply(
+                    mem$type, type_has_writable_signature, logical(1),
+                    empty = FALSE, array = TRUE
+                )
+                if (any(!ok)) stop("invalid type name")
+            }, silent = TRUE), "try-error")
+        }, logical(1))
+        if (any(!keep)) {
+            report <<- combine_reports(report, new_report(
+                "unsupported_signature", df$name[!keep], file_names(df$file[!keep]),
+                sprintf("%s member signature cannot be written as a rdyncall dynport signature", field)
+            ))
+        }
+        as_df(df[keep, , drop = FALSE])
+    }
+
+    filter_enum_members <- function(df) {
+        if (is.null(df)) return(df)
+        for (i in seq_len(nrow(df))) {
+            values <- df$values[[i]]
+            keep <- valid_export_name(values$name)
+            if (any(!keep)) {
+                report <<- combine_reports(report, new_report(
+                    "unsupported_export_name", values$name[!keep], file_names(df$file[[i]]),
+                    sprintf("enum member of '%s' is not a valid R export name and was not written", df$name[[i]])
+                ))
+                df$values[[i]] <- values[keep, , drop = FALSE]
+            }
+        }
+        df
+    }
+
+    for (field in c("Function", "Variadic", "FuncPtr")) {
+        data[[field]] <- filter_function_signatures(data[[field]], field)
+        data[[field]] <- filter_export_names(data[[field]], field)
+    }
+
+    for (field in c("Enum", "Struct", "Union")) {
+        data[[field]] <- filter_export_names(data[[field]], field)
+    }
+    for (field in c("Struct", "Union")) {
+        data[[field]] <- filter_aggregate_signatures(data[[field]], field)
+    }
+    data$Enum <- filter_enum_members(data$Enum)
+
+    list(data = data, report = report)
+}
+
+pull_report <- function(data) {
+    report <- attr(data, "report", exact = TRUE)
+    attr(data, "report") <- NULL
+    list(data = data, report = combine_reports(report))
 }
 
 empty_report <- function() {

@@ -1,3 +1,22 @@
+test_that("github_token() handles missing tokens", {
+    vars <- c("GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN")
+    old <- Sys.getenv(vars, unset = NA_character_)
+    on.exit({
+        for (var in vars) {
+            if (is.na(old[[var]])) {
+                Sys.unsetenv(var)
+            } else {
+                do.call(Sys.setenv, as.list(structure(old[[var]], names = var)))
+            }
+        }
+    }, add = TRUE)
+
+    Sys.unsetenv(vars)
+
+    expect_null(github_token())
+    expect_null(github_token(""))
+})
+
 test_that("github_release_latest() works", {
     skip_on_cran()
     rel <- github_release_latest("libsdl-org/SDL")
