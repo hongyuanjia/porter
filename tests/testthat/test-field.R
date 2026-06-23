@@ -1,17 +1,17 @@
 test_that("port_fields() works", {
-    skip_on_cran()
+    skip_if_no_castxml()
 
-    header_sdl <- file.path(get_src_sdl2(), "include", "SDL.h")
-    expect_s3_class(p <- port(header_sdl), "dynport")
+    header_sample <- local_porter_header()
+    expect_s3_class(p <- port(header_sample), "dynport")
 
     expect_equal(port_fields(p), PORT_FIELDS)
 })
 
 test_that("port_get() works", {
-    skip_on_cran()
+    skip_if_no_castxml()
 
-    header_sdl <- file.path(get_src_sdl2(), "include", "SDL.h")
-    expect_s3_class(p <- port(header_sdl), "dynport")
+    header_sample <- local_porter_header()
+    expect_s3_class(p <- port(header_sample), "dynport")
 
     expect_equal(port_get(p, "Package"), NULL)
     expect_equal(port_get(p, "Version"), NULL)
@@ -23,16 +23,16 @@ test_that("port_get() works", {
 })
 
 test_that("port_set() works", {
-    skip_on_cran()
+    skip_if_no_castxml()
 
-    header_sdl <- file.path(get_src_sdl2(), "include", "SDL.h")
-    expect_s3_class(p <- port(header_sdl), "dynport")
+    header_sample <- local_porter_header()
+    expect_s3_class(p <- port(header_sample), "dynport")
 
-    expect_error(port_set(p, "Package", ".SDL2"))
+    expect_error(port_set(p, "Package", ".Sample"))
     expect_s3_class(port_set(p, "Package", "R"), "dynport")
-    expect_s3_class(p <- port_set(p, "Package", "SDL2"), "dynport")
-    expect_equal(port_get(p, "Package"), "SDL2")
-    expect_equal(port_get(p, c("Package", "Version")), list(Package = "SDL2", Version = NULL))
+    expect_s3_class(p <- port_set(p, "Package", "Sample"), "dynport")
+    expect_equal(port_get(p, "Package"), "Sample")
+    expect_equal(port_get(p, c("Package", "Version")), list(Package = "Sample", Version = NULL))
     expect_s3_class(p <- port_set(p, Package = NULL), "dynport")
     expect_equal(port_get(p, "Package"), NULL)
 
