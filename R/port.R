@@ -606,22 +606,37 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
     }
 
     if (!is.null(types$func)) {
-        # all function types are function pointers
-        ind <- match(types$func$id, types$pointer$type)
+        types$all <- rbind.data.frame(types$all,
+            df(
+                id = types$func$id, name = "",
+                type = NA_character_, kind = "function"
+            )
+        )
 
-        # just in case
-        if (any(mis <- is.na(ind))) {
-            stop(spaste(
-                "Found function types not defined as pointers: [%s]",
-                .v = spaste("'%s'", .v = types$func[mis]),
-                .vcoll = ", "
-            ))
+        # Only function types directly referenced by a PointerType are written
+        # as FuncPtr entries. Function-type typedefs remain in types$all so
+        # chains such as PointerType -> Typedef -> FunctionType resolve to p.
+        ind <- match(types$func$id, types$pointer$type)
+        types$func <- types$func[!is.na(ind), , drop = FALSE]
+        ind <- ind[!is.na(ind)]
+
+        if (!nrow(types$func)) {
+            types$func <- NULL
+            return(types)
         }
 
         # there are only 2 possible ways that function pointers can appear:
         # a. in Typedef
         # b. as a member in Struct/Union
-        members <- do.call(rbind.data.frame, c(structs$members, unions$members))
+        members_list <- c(
+            if (!is.null(structs)) structs$members else NULL,
+            if (!is.null(unions)) unions$members else NULL
+        )
+        members <- if (length(members_list)) {
+            do.call(rbind.data.frame, members_list)
+        } else {
+            df(id = character(), name = character(), type = character())
+        }
         types_tmp <- df(
             type = c(types$def$type, members$type),
             name = c(types$def$name, members$name),
@@ -642,13 +657,6 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
                 .v = spaste("'%s'", .v = types$func$id[empty], .rcoll = ", ")
             ))
         }
-
-        types$all <- rbind.data.frame(types$all,
-            df(
-                id = types$func$id, name = types$func$name,
-                type = NA_character_, kind = "function"
-            )
-        )
 
         # process argument and return types
         types$func <- proc_type_funs(types, types$func)[

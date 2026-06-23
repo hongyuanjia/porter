@@ -103,6 +103,30 @@ test_that("macro diagnostics report CastXML preprocessor failures", {
     expect_true(all(is.na(report$line)))
 })
 
+test_that("function type typedef pointers are written as pointers", {
+    skip_if(Sys.which("castxml") == "", "CastXML is not available")
+
+    header <- tempfile(fileext = ".h")
+    writeLines(c(
+        "typedef int bare_fn_t(int x);",
+        "struct Holder { bare_fn_t *cb; };",
+        "int fixed(int x);"
+    ), header)
+
+    p <- port(header, limit = TRUE)
+
+    expect_equal(port_get(p, "Function")$name, "fixed")
+    expect_false("bare_fn_t" %in% port_get(p, "FuncPtr")$name)
+    expect_equal(port_get(p, "Struct")$name, "Holder")
+
+    p <- port_set(p, Package = "T", Version = "1.0", Library = "T")
+    file <- tempfile(fileext = ".dynport")
+    suppressWarnings(port_write(p, file))
+    txt <- paste(readLines(file), collapse = "\n")
+
+    expect_match(txt, "Holder\\{p\\}cb;", fixed = FALSE)
+})
+
 test_that("R headers can be converted despite anonymous CastXML members", {
     skip_if(Sys.which("castxml") == "", "CastXML is not available")
 
