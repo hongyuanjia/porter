@@ -1,25 +1,27 @@
 test_that("port() works", {
     header <- tempfile("header", fileext = ".h")
     writeLines("", header)
+    fake_castxml <- header
 
     # can stop if CastXML is not found
     expect_error(port(header, castxml = NULL), "castxml")
     # can stop if input header file not found
-    expect_error(port(""), "header")
+    expect_error(port("", castxml = fake_castxml), "header")
     # can stop if cflags contains missing values
-    expect_error(port(header, cflags = NA), "cflags")
+    expect_error(port(header, cflags = NA, castxml = fake_castxml), "cflags")
     # can stop if limit is neither a flag nor a string
-    expect_error(port(header, limit = NA), "limit")
+    expect_error(port(header, limit = NA, castxml = fake_castxml), "limit")
     # can stop if keep is not flag
-    expect_error(port(header, keep = ""), "keep")
+    expect_error(port(header, keep = "", castxml = fake_castxml), "keep")
+
+    skip_if_no_castxml()
+
     # can stop if CastXML errors
     bad_header <- tempfile(fileext = ".h")
     writeLines("not valid C input @", bad_header)
     expect_error(port(bad_header), "CastXML")
     # can warn if C++ header
     expect_warning(port({ h <- tempfile(fileext = ".hpp"); writeLines("", h); h }), "C\\+\\+")
-
-    skip_if_no_castxml()
 
     expect_s3_class(p <- port(header), "dynport")
     expect_named(p, unname(PORT_FIELDS))

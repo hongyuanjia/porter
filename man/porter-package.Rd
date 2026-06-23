@@ -8,6 +8,14 @@
 \description{
 Generate port files for parsing header files of C libraries using 'CastXML'.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/hongyuanjia/porter}
+  \item Report bugs at \url{https://github.com/hongyuanjia/porter/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Hongyuan Jia \email{hongyuanjia@cqust.edu.cn} (\href{https://orcid.org/0000-0002-0075-8183}{ORCID})
 

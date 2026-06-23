@@ -117,7 +117,7 @@ normalize_castxml_cflags <- function(cflags,
 
     if (!nzchar(xcrun)) return(cflags)
     if (is.null(xcrun_sdk)) {
-        xcrun_sdk <- try(system2(xcrun, "--show-sdk-path", stdout = TRUE), silent = TRUE)
+        xcrun_sdk <- xcrun_show_sdk_path(xcrun)
     }
     if (inherits(xcrun_sdk, "try-error") || !length(xcrun_sdk) || !nzchar(xcrun_sdk[[1L]])) {
         return(cflags)
@@ -125,6 +125,25 @@ normalize_castxml_cflags <- function(cflags,
     if (!dir.exists(xcrun_sdk[[1L]])) return(cflags)
 
     c(cflags, "-isysroot", normalizePath(xcrun_sdk[[1L]], mustWork = TRUE))
+}
+
+xcrun_show_sdk_path <- function(xcrun) {
+    tmp <- tempfile("porter-xcrun-")
+    if (!dir.create(tmp)) {
+        return(try(system2(xcrun, c("--no-cache", "--show-sdk-path"), stdout = TRUE), silent = TRUE))
+    }
+    on.exit(unlink(tmp, recursive = TRUE, force = TRUE), add = TRUE)
+
+    try(
+        system2(
+            xcrun,
+            c("--no-cache", "--show-sdk-path"),
+            stdout = TRUE,
+            stderr = FALSE,
+            env = paste0("TMPDIR=", tmp)
+        ),
+        silent = TRUE
+    )
 }
 
 #' Inspect diagnostics recorded while generating a dynport
