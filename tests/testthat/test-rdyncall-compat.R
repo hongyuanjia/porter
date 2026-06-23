@@ -145,15 +145,7 @@ test_that("R headers can be converted despite anonymous CastXML members", {
     writeLines(c("#include <R.h>", "#include <Rinternals.h>"), header)
     on.exit(unlink(header), add = TRUE)
 
-    cflags <- paste0("-I", inc)
-    if (identical(Sys.info()[["sysname"]], "Darwin") && nzchar(Sys.which("xcrun"))) {
-        sdk <- try(system2("xcrun", "--show-sdk-path", stdout = TRUE), silent = TRUE)
-        if (!inherits(sdk, "try-error") && length(sdk) && nzchar(sdk[[1L]])) {
-            cflags <- c(cflags, "-isysroot", sdk[[1L]])
-        }
-    }
-
-    p <- suppressWarnings(port(header, limit = inc, cflags = cflags))
+    p <- suppressWarnings(port(header, limit = inc, cflags = paste0("-I", inc)))
 
     expect_true("Function" %in% port_fields(p))
     expect_true("Variadic" %in% port_fields(p))
