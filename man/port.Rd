@@ -43,6 +43,7 @@ Parse C-family header files using CastXML and gather data from the generated
 XML.
 }
 \note{
-Please note that functions defined as macros are not supported, yet.
+Please note that function-like macros are not converted to callable entries.
+They are reported by \code{port_report()} as unsupported macros.
 See: https://github.com/CastXML/CastXML/issues/21
 }

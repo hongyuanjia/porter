@@ -9,13 +9,16 @@ Description: Generate port files for parsing header files of C libraries using
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.3
 Depends:
     R (>= 3.1.0)
 Imports:
     xml2
 Suggests: 
+    rdyncall,
     testthat (>= 3.0.0)
+Remotes:
+    hongyuanjia/rdyncall
 Config/testthat/edition: 3
 Collate: 
     'utils.R'

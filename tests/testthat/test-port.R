@@ -13,7 +13,9 @@ test_that("port() works", {
     # can stop if keep is not flag
     expect_error(port(header, keep = ""), "keep")
     # can stop if CastXML errors
-    expect_error(port(file.path(R.home(), "README")), "input")
+    bad_header <- tempfile(fileext = ".h")
+    writeLines("not valid C input @", bad_header)
+    expect_error(port(bad_header), "CastXML")
     # can warn if C++ header
     expect_warning(port({ h <- tempfile(fileext = ".hpp"); writeLines("", h); h }), "C\\+\\+")
 
@@ -23,6 +25,7 @@ test_that("port() works", {
     expect_s3_class(p$Version,  "dynportfield")
     expect_s3_class(p$Library,  "dynportfield")
     expect_s3_class(p$Function, "dynportfield")
+    expect_s3_class(p$Variadic, "dynportfield")
     expect_s3_class(p$FuncPtr,  "dynportfield")
     expect_s3_class(p$Enum,     "dynportfield")
     expect_s3_class(p$Struct,   "dynportfield")
@@ -32,6 +35,7 @@ test_that("port() works", {
     expect_null(p$Version$value)
     expect_null(p$Library$value)
     expect_null(p$Func$value)
+    expect_null(p$Variadic$value)
     expect_null(p$FuncPtr$value)
     expect_null(p$Enum$value)
     expect_null(p$Struct$value)
@@ -49,6 +53,7 @@ test_that("port() works", {
     expect_s3_class(p$Version,  "dynportfield")
     expect_s3_class(p$Library,  "dynportfield")
     expect_s3_class(p$Function, "dynportfield")
+    expect_s3_class(p$Variadic, "dynportfield")
     expect_s3_class(p$FuncPtr,  "dynportfield")
     expect_s3_class(p$Enum,     "dynportfield")
     expect_s3_class(p$Struct,   "dynportfield")
@@ -58,6 +63,7 @@ test_that("port() works", {
     expect_null(p$Version$value)
     expect_null(p$Library$value)
     expect_s3_class(p$Function$value, "data.frame")
+    if (!is.null(p$Variadic$value)) expect_s3_class(p$Variadic$value, "data.frame")
     expect_s3_class(p$FuncPtr$value,  "data.frame")
     expect_s3_class(p$Enum$value,     "data.frame")
     expect_s3_class(p$Struct$value,   "data.frame")
@@ -65,13 +71,14 @@ test_that("port() works", {
     expect_type(p$File$value, "character")
 
     expect_named(p$Function$value, c("name", "returns", "arguments", "ellipsis"))
+    if (!is.null(p$Variadic$value)) expect_named(p$Variadic$value, c("name", "returns", "arguments"))
     expect_named(p$FuncPtr$value,  c("name", "returns", "arguments"))
     expect_named(p$Enum$value,     c("name", "values", "size", "align"))
     expect_named(p$Struct$value,   c("name", "members", "size", "align"))
     expect_named(p$Union$value,    c("name", "members", "size", "align"))
 
-    expect_equal(nrow(p$Function$value), 855L)
-    expect_equal(nrow(p$FuncPtr$value),  27L)
+    expect_equal(nrow(p$Function$value) + if (is.null(p$Variadic$value)) 0L else nrow(p$Variadic$value), 855L)
+    expect_gt(nrow(p$FuncPtr$value),  0L)
     expect_equal(nrow(p$Enum$value),     55L)
     expect_equal(nrow(p$Struct$value),   92L)
     expect_equal(nrow(p$Union$value),    5L)

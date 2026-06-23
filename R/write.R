@@ -27,6 +27,14 @@ port_write <- function(port, file, reorder = TRUE) {
         ))
     }
 
+    report <- port_report(port)
+    if (nrow(report)) {
+        warning(sprintf(
+            "porter recorded %d diagnostic item%s; use port_report() to inspect them.",
+            nrow(report), ngettext(nrow(report), "", "s")
+        ), call. = FALSE)
+    }
+
     fmt <- lapply(port[names(port) != "File"], format.dynportfield, raw = TRUE)
     out <- mapply(format_field,
         key = names(fmt[names(fmt) != "Enum"]),

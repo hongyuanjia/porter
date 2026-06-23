@@ -1,6 +1,6 @@
 PORT_FIELDS <- c(
-    "Package", "Version", "Library", "Function", "FuncPtr", "Enum", "Struct",
-    "Union", "File"
+    "Package", "Version", "Library", "Function", "Variadic", "FuncPtr",
+    "Enum", "Struct", "Union", "File"
 )
 
 #' Query and update `dynport` fields
@@ -150,7 +150,7 @@ port_create_field <- function(key, value, check = TRUE) {
 print.dynportfield <- function(x, n = 5L, ...) {
     if (x$key %in% c("Package", "Version", "Library")) {
         print_dynportfield_meta(x)
-    } else if (x$key %in% c("Function", "FuncPtr", "Enum", "Struct", "Union")) {
+    } else if (x$key %in% c("Function", "Variadic", "FuncPtr", "Enum", "Struct", "Union")) {
         print_dynportfield_data(x, n)
     } else {
         print_dynportfield_meta(x)
@@ -181,10 +181,11 @@ print_dynportfield_data <- function(x, n = 5L, ...) {
     }
 }
 
+#' @export
 format.dynportfield <- function(x, raw = FALSE, ...) {
     if (x$key %in% c("Package", "Version", "Library")) {
         format_dynportfield_meta(x, raw)
-    } else if (x$key %in% c("Function", "FuncPtr", "Enum", "Struct", "Union")) {
+    } else if (x$key %in% c("Function", "Variadic", "FuncPtr", "Enum", "Struct", "Union")) {
         format_dynportfield_data(x, raw)
     } else {
         format_dynportfield_meta(x, raw)
@@ -204,6 +205,7 @@ format_dynportfield_meta <- function(x, raw = FALSE, ...) {
 format_dynportfield_data <- function(x, raw = FALSE, ...) {
     value <- switch(x$key,
         Function = format_sig_func(x$value),
+        Variadic = format_sig_func(x$value),
         FuncPtr  = format_sig_func(x$value),
         Struct   = format_sig_struct(x$value),
         Union    = format_sig_union(x$value),
