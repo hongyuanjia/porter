@@ -19,6 +19,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
       NOT_CRAN: "true"
+      GITHUB_PAT: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
@@ -31,6 +32,15 @@ jobs:
       - name: Install system dependencies
         if: runner.os == 'macOS'
         run: brew install castxml
+
+      - name: Configure macOS SDK
+        if: runner.os == 'macOS'
+        run: |
+          sdk="$(xcrun --show-sdk-path)"
+          echo "SDKROOT=$sdk" >> "$GITHUB_ENV"
+          echo "CPATH=$sdk/usr/include" >> "$GITHUB_ENV"
+          echo "C_INCLUDE_PATH=$sdk/usr/include" >> "$GITHUB_ENV"
+          echo "CPLUS_INCLUDE_PATH=$sdk/usr/include" >> "$GITHUB_ENV"
 
       - name: Install system dependencies
         if: runner.os == 'Windows'
