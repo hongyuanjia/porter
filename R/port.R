@@ -20,7 +20,7 @@
 #'        Default: `NULL`.
 #'
 #' @param castxml A single string indicating the file path of the CastXML
-#'        executable. Default is used the path found by `Sys.which("castxml")`.
+#'        executable. Default uses [locate_castxml()].
 #'
 #' @return An `dynport` object.
 #'
@@ -29,7 +29,7 @@
 #' They are reported by `port_report()` as unsupported macros.
 #' See: https://github.com/CastXML/CastXML/issues/21
 #' @export
-port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = Sys.which("castxml")) {
+port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = locate_castxml()) {
     if (!is_string(castxml) || !file.exists(castxml)) {
         stop("Argument 'castxml' must be a file path of CastXML executable.")
     }

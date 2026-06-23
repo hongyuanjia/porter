@@ -11,7 +11,6 @@ knitr::opts_chunk$set(
   fig.path = "man/figures/README-",
   out.width = "100%"
 )
-library(porter)
 ```
 
 # porter
@@ -29,60 +28,54 @@ XML output tool to parse C header files.
 You can install the development version of porter like so:
 
 ``` r
-remotes::install_github("hongyuanjia/port")
+remotes::install_github("hongyuanjia/porter")
 ```
 
 ## Example
 
-### Manage CastXML installation
+### Locate CastXML
 
-You can use `install_castxml()` to install CastXML. It downloads the pre-built
-binaries of CastXML together with the LLVM/Clang dependencies via the
-[CastXML Superbuild](https://github.com/CastXML/CastXMLSuperbuild) project.
+porter uses CastXML but does not download or install it. Install CastXML with
+your system package manager before calling `port()`.
 
-`locate_castxml()` will return the current CastXML in use:
+- On Windows, [Scoop](https://scoop.sh/) can install CastXML via
+  `scoop install main/castxml`.
+- On macOS, [Homebrew](https://brew.sh/) can install CastXML via
+  `brew install castxml`.
+- On Linux, use your distribution package manager when it provides CastXML, or
+  use Linuxbrew via `brew install castxml`.
+
+`locate_castxml()` returns the CastXML executable porter will use. By default it
+checks `Sys.which("castxml")`, then common package-manager paths for Homebrew,
+Linuxbrew, Scoop, Chocolatey, and conda. Set `options(porter.castxml = ...)` to
+force a specific executable or installation directory.
 
 ```{r example, eval = FALSE}
-install_castxml("latest")
+library(porter)
 
 locate_castxml()
-#>                                         0.5.0
-#> "C:\\Users\\hongy\\scoop\\shims\\castxml.exe"
+#>                         0.7.0
+#> "/opt/homebrew/bin/castxml"
 ```
-
-Instead of using `install_castxml()`, you may directly use your package manager
-to install CastXML, as it may already provide a `castxml` package.
-
-- On Windows, you can use [Scoop](https://scoop.sh/) to install CastXML via:
-  `scoop install main/castxml`
-- On macOS, you can use [Homebrew](https://brew.sh/) to install CastXML via:
-  `brew install castxml`
-- On Linux, you can check if your system package manager provides CastXML or
-  not via [Repology](https://repology.org/project/castxml/versions).
 
 ### Generate port files for C libraries
 
-Take the [SDL2](https://www.libsdl.org/) library as an example. After
-downloading the SDL2 [source](https://github.com/libsdl-org/SDL/releases), run
-`port()` with the path of SDL2 header file (here `dir` is directory of SDL2
-source):
+Run `port()` with the path of a C header file:
 
-```{r sdl2}
-version <- "2.28.0"
-dir <- file.path(tempdir(), paste0("SDL2-", version))
-if (!dir.exists(dir)) {
-  zipfile <- porter:::download_src_sdl2(version)
-  unzip(zipfile, exdir = tempdir())
-}
-```
+```{r port, eval = FALSE}
+header <- tempfile(fileext = ".h")
+writeLines(c(
+  "typedef struct Point { int x; double y; } Point;",
+  "int add(int a, int b);",
+  "int message(const char *fmt, ...);"
+), header)
 
-```{r port}
-p <- port(file.path(dir, "include", "SDL.h"))
+p <- port(header)
 
 p <- port_set(p,
-  Package = "SDL2",
-  Version = "2.28.0",
-  Library = c("SDL", "SDL-2.28", "SDL-2.28.so.0")
+  Package = "Example",
+  Version = "1.0",
+  Library = "example"
 )
 
 p
@@ -90,8 +83,8 @@ p
 
 Use `port_write()` to save the port file.
 
-```{r write}
-port_write(p, file.path(tempdir(), "SDL2.dynport"))
+```{r write, eval = FALSE}
+port_write(p, file.path(tempdir(), "Example.dynport"))
 ```
 
 ## Author

@@ -19,6 +19,8 @@ test_that("port() works", {
     # can warn if C++ header
     expect_warning(port({ h <- tempfile(fileext = ".hpp"); writeLines("", h); h }), "C\\+\\+")
 
+    skip_if_no_castxml()
+
     expect_s3_class(p <- port(header), "dynport")
     expect_named(p, unname(PORT_FIELDS))
     expect_s3_class(p$Package,  "dynportfield")
@@ -44,10 +46,8 @@ test_that("port() works", {
 
     unlink(header)
 
-    skip_on_cran()
-
-    header_sdl <- file.path(get_src_sdl2(), "include", "SDL.h")
-    expect_s3_class(p <- port(header_sdl), "dynport")
+    header_sample <- local_porter_header()
+    expect_s3_class(p <- port(header_sample), "dynport")
     expect_named(p, unname(PORT_FIELDS))
     expect_s3_class(p$Package,  "dynportfield")
     expect_s3_class(p$Version,  "dynportfield")
@@ -77,15 +77,15 @@ test_that("port() works", {
     expect_named(p$Struct$value,   c("name", "members", "size", "align"))
     expect_named(p$Union$value,    c("name", "members", "size", "align"))
 
-    sdl_functions <- c(
+    functions <- c(
         p$Function$value$name,
         if (is.null(p$Variadic$value)) character() else p$Variadic$value$name
     )
-    expect_gt(length(sdl_functions), 600L)
-    expect_true(all(c("SDL_Init", "SDL_Quit", "SDL_CreateWindow", "SDL_PollEvent") %in% sdl_functions))
+    expect_true(all(c("porter_add", "porter_set_callback", "porter_printf") %in% functions))
     expect_gt(nrow(p$FuncPtr$value), 0L)
-    expect_true(all(c("SDL_bool", "SDL_EventType", "SDL_BlendMode") %in% p$Enum$value$name))
-    expect_true(all(c("SDL_Window", "SDL_Renderer", "SDL_Surface") %in% p$Struct$value$name))
+    expect_equal(p$Variadic$value$name, "porter_printf")
+    expect_true("PorterBool" %in% p$Enum$value$name)
+    expect_true("PorterPoint" %in% p$Struct$value$name)
     expect_gt(nrow(p$Union$value), 0L)
     expect_gt(length(p$File$value), 0L)
 })

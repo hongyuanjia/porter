@@ -1,5 +1,5 @@
 test_that("rdyncall-compatible ABI details are preserved", {
-    skip_if(Sys.which("castxml") == "", "CastXML is not available")
+    skip_if_no_castxml()
 
     header <- tempfile(fileext = ".h")
     writeLines(c(
@@ -53,7 +53,7 @@ test_that("rdyncall-compatible ABI details are preserved", {
 })
 
 test_that("macro diagnostics use CastXML preprocessor output", {
-    skip_if(Sys.which("castxml") == "", "CastXML is not available")
+    skip_if_no_castxml()
 
     root <- tempfile("porter-macros-")
     outside <- tempfile("porter-macros-outside-")
@@ -111,7 +111,7 @@ test_that("macro diagnostics report CastXML preprocessor failures", {
 })
 
 test_that("function type typedef pointers are written as pointers", {
-    skip_if(Sys.which("castxml") == "", "CastXML is not available")
+    skip_if_no_castxml()
 
     header <- tempfile(fileext = ".h")
     writeLines(c(
@@ -135,7 +135,7 @@ test_that("function type typedef pointers are written as pointers", {
 })
 
 test_that("R headers can be converted despite anonymous CastXML members", {
-    skip_if(Sys.which("castxml") == "", "CastXML is not available")
+    skip_if_no_castxml()
 
     inc <- file.path(R.home(), "include")
     headers <- file.path(inc, c("R.h", "Rinternals.h"))

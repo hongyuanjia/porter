@@ -45,11 +45,3 @@ test_that("reg_match() works", {
         list(c(".match" = "a b", "a"), c(".match" = "a1b", "a"))
     )
 })
-
-test_that("from_json() works", {
-    expect_equal(from_json("{}"), list())
-    expect_equal(from_json('{"a":1}'), list(a = 1L))
-    expect_equal(from_json('{"a":{\n"b": 2 }}'), list(a = list(b = 2L)))
-    expect_equal(from_json('{"a": [1, 2, 3]}'), list(a = 1:3))
-    expect_equal(from_json('{"a": {"b": [1, 2, 3]}}'), list(a = list(b = 1:3)))
-})
