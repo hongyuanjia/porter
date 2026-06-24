@@ -1,12 +1,15 @@
 Package: porter
-Title: Generate Port Files for Foreign Function Interface for C Libraries
-Version: 0.0.0.9000
+Title: Generate Port Files for C Libraries
+Version: 0.1.0.9000
 Authors@R: 
-    person("Hongyuan", "Jia", , "hongyuanjia@cqust.edu.cn", role = c("aut", "cre"),
+    person("Hongyuan", "Jia", , "hongyuanjia@cqust.edu.cn", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-0075-8183"))
-Description: Generate port files for parsing header files of C libraries using
-    'CastXML'.
+Description: Generate port files for foreign function interfaces to C
+    libraries by parsing C-family header files with 'CastXML'.
 License: MIT + file LICENSE
+URL: https://github.com/hongyuanjia/porter
+BugReports: https://github.com/hongyuanjia/porter/issues
+SystemRequirements: CastXML
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
