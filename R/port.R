@@ -298,6 +298,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
                 Struct = NULL, Union = NULL, File = NULL
             ))
         } else {
+            report <- filter_report_by_dirs(report, dirs)
             subset_by_file <- function(df, files) {
                 if (!is.null(df)) as_df(df[df$file %in% files, ])
             }
@@ -1097,25 +1098,14 @@ filter_rdyncall_output <- function(data, files = NULL) {
         out
     }
 
-    valid_export_name <- function(name) {
-        !is.na(name) & nzchar(name) & name == make.names(name)
-    }
-
-    type_references_valid_names <- function(type) {
-        if (!inherits(type, "dynporttype")) return(TRUE)
-        named <- type$kind %in% c("enum", "struct", "union")
-        names <- gsub("^<(.*)>$", "\\1", type$type[named])
-        !any(!valid_export_name(names))
-    }
-
     type_has_writable_signature <- function(type, empty = FALSE, array = FALSE) {
-        dyncall_sig(type, empty = empty, array = array)
-        type_references_valid_names(type)
+        sig <- dyncall_sig(type, empty = empty, array = array)
+        signature_references_valid_names(sig)
     }
 
     filter_export_names <- function(df, field) {
         if (is.null(df)) return(df)
-        keep <- valid_export_name(df$name)
+        keep <- valid_dynport_name(df$name)
         if (any(!keep)) {
             report <<- combine_reports(report, new_report(
                 "unsupported_export_name", df$name[!keep], file_names(df$file[!keep]),
@@ -1174,7 +1164,7 @@ filter_rdyncall_output <- function(data, files = NULL) {
         if (is.null(df)) return(df)
         for (i in seq_len(nrow(df))) {
             values <- df$values[[i]]
-            keep <- valid_export_name(values$name)
+            keep <- valid_dynport_name(values$name)
             if (any(!keep)) {
                 report <<- combine_reports(report, new_report(
                     "unsupported_export_name", values$name[!keep], file_names(df$file[[i]]),
@@ -1200,6 +1190,21 @@ filter_rdyncall_output <- function(data, files = NULL) {
     data$Enum <- filter_enum_members(data$Enum)
 
     list(data = data, report = report)
+}
+
+filter_report_by_dirs <- function(report, dirs) {
+    if (is.null(report) || !nrow(report) || is.null(dirs)) return(report)
+
+    dirs <- normalizePath(dirs, mustWork = FALSE)
+    files <- report$file
+    has_real_file <- !is.na(files) & nzchar(files) & file.exists(files)
+    keep <- !has_real_file
+    paths <- normalizePath(dirname(files[has_real_file]), mustWork = FALSE)
+    in_scope <- logical(length(paths))
+    for (d in dirs) in_scope <- is_parent_dir(d, paths) | in_scope
+    keep[has_real_file] <- in_scope
+
+    report[keep, , drop = FALSE]
 }
 
 pull_report <- function(data) {
@@ -1377,15 +1382,16 @@ mark_unsupported_layouts <- function(df, kind, files) {
 
     if (!any(unsupported)) return(list(data = df, report = empty_report()))
 
+    named <- !is.na(df$name) & nzchar(df$name)
     report <- combine_reports(
         new_report(
-            "unsupported_type", df$name[unsupported_type],
-            files$name[match(df$file[unsupported_type], files$id)],
+            "unsupported_type", df$name[unsupported_type & named],
+            files$name[match(df$file[unsupported_type & named], files$id)],
             "aggregate member type cannot be written as a rdyncall signature; emitted as opaque"
         ),
         new_report(
-            "unsupported_layout", df$name[unsupported_layout & !unsupported_type],
-            files$name[match(df$file[unsupported_layout & !unsupported_type], files$id)],
+            "unsupported_layout", df$name[unsupported_layout & !unsupported_type & named],
+            files$name[match(df$file[unsupported_layout & !unsupported_type & named], files$id)],
             "aggregate layout cannot be expressed with rdyncall layout directives; emitted as opaque"
         )
     )

@@ -1,6 +1,8 @@
 BASETYPE_MAP <- c(
     "B" = "_Bool",
+    "B" = "bool",
     "c" = "char",
+    "c" = "signed char",
     "C" = "unsigned char",
     "s" = "short int",
     "S" = "short unsigned int",
@@ -16,6 +18,29 @@ BASETYPE_MAP <- c(
     "Z" = "string",
     "v" = "void"
 )
+
+valid_dynport_name <- function(name) {
+    !is.na(name) & nzchar(name) & name == make.names(name)
+}
+
+format_type_chain <- function(type) {
+    paste(sprintf("%s:%s", type$kind, type$type), collapse = " -> ")
+}
+
+signature_type_references <- function(sig) {
+    # Typed pointers may refer to opaque C tags that are not valid R object
+    # names, such as *_SDL_Joystick or *__sFILE. These are safe as pointer-only
+    # references, so only validate by-value references in the remaining text.
+    sig <- gsub("\\*<[^>]+>", "", sig, perl = TRUE)
+    refs <- regmatches(sig, gregexpr("<[^>]+>", sig, perl = TRUE))[[1L]]
+    if (!length(refs) || identical(refs, character(0))) return(character())
+    unique(sub("^<(.+)>$", "\\1", refs))
+}
+
+signature_references_valid_names <- function(sig) {
+    refs <- signature_type_references(sig)
+    !length(refs) || all(valid_dynport_name(refs))
+}
 
 drop_array_types <- function(type) {
     keep <- type$kind != "array"
@@ -39,48 +64,32 @@ dyncall_sig <- function(type, empty = FALSE, array = FALSE) {
         return(paste0(dyncall_sig(drop_array_types(type), empty, FALSE), array_suffix(type)))
     }
 
+    pointer_count <- sum(type$kind == "pointer")
+
     # If ends up with base type, then directly convert
     if (type$kind[len] == "base") {
-        # the simplest case
-        if (len == 1L) {
-            bt <- names(BASETYPE_MAP)[match(type$type, BASETYPE_MAP)]
-            if (is.na(bt)) {
-                stop(spaste("Internal error: unsupported base type found ('%s').", .v = type$type))
-            }
-            return(bt)
+        bt <- names(BASETYPE_MAP)[match(type$type[[len]], BASETYPE_MAP)]
+        if (is.na(bt)) {
+            stop(spaste("Internal error: unsupported base type found ('%s').", .v = type$type[[len]]))
         }
+
+        # the simplest case
+        if (len == 1L) return(bt)
+
+        if (pointer_count >= 2L) return("p")
 
         # pointer of a base type
-        if (len == 2L) {
-            bt <- names(BASETYPE_MAP)[match(type$type[[len]], BASETYPE_MAP)]
-            if (is.na(bt)) {
-                stop(spaste("Internal error: unknown base type found ('%s').", .v = type$type[[len]]))
-            }
-
+        if (pointer_count == 1L) {
             # *void
-            if (type$type[[1L]] == "*") {
-                if (bt == "v") return("p") else return(paste0("*", bt))
-            # const int, etc.
-            } else if (type$type[[1L]] == "const") {
-                return(bt)
-            } else if (type$kind[[1L]] == "array") {
-                return("p")
-            }
-        }
-
-        tp <- sort(type$type)
-
-        if (len == 3L) {
+            if (bt == "v") return("p")
             # const char *
-            if (identical(tp, c("*", "char", "const"))) {
-                return("Z") # string
-            } else if (tp[[1L]] == "*") {
-                return("p") # pointer
-            }
+            if (bt == "c" && "const" %in% type$type) return("Z")
+            if (len == 2L && type$type[[1L]] == "*") return(paste0("*", bt))
+            return("p")
         }
 
-        # const char **, return as pointer
-        if (len == 4L && tp[[1L]] == "*") return("p") # pointer
+        # const int, etc.
+        if (all(type$type[-len] == "const")) return(bt)
     }
 
     if (!(type$kind[len] %in% c("enum", "struct", "union", "function"))) {
@@ -92,7 +101,7 @@ dyncall_sig <- function(type, empty = FALSE, array = FALSE) {
 
     # NOTE: only support function pointer
     if (type$kind[len] == "function") {
-        if (any(!type$type[-len] %in% c("*", "[]", "const"))) {
+        if (any(!type$kind[-len] %in% c("pointer", "array", "cvqualified"))) {
             stop(spaste(
                 "Internal error: found 'function'",
                 "with an invalid qualifier ('%s'['%s']).",
@@ -104,13 +113,28 @@ dyncall_sig <- function(type, empty = FALSE, array = FALSE) {
     }
 
     # handle enums/structs/unions
+    target <- type$type[[len]]
+    target_name <- sub("^<(.*)>$", "\\1", target)
+    target_valid <- valid_dynport_name(target_name)
+    if (pointer_count >= 2L) return("p")
+    if (pointer_count == 1L) {
+        if (!nzchar(target_name)) return("p")
+        if (all(type$kind[-len] %in% c("pointer", "cvqualified"))) return(paste0("*", target))
+    }
+    if (!target_valid) {
+        stop(spaste(
+            "Internal error: found enum/struct/union with an invalid type name ('%s').",
+            .v = target
+        ))
+    }
+
     if (len == 1L) {
-        type$type
+        target
     } else if (len == 2L) {
         if (type$type[[1L]] == "const") {
-            type$type[[len]]
+            target
         } else if (type$type[[1L]] == "*" || type$kind[[1L]] == "array") {
-            paste0("*", type$type[[len]])
+            paste0("*", target)
         } else {
             stop(spaste(
                 "Internal error: found enum/struct/union",
@@ -120,7 +144,7 @@ dyncall_sig <- function(type, empty = FALSE, array = FALSE) {
         }
     } else if (len == 3L) {
         if (identical(sort(type$type[-len]), c("*", "const"))) {
-            paste0("*", type$type[len])
+            paste0("*", target)
         } else if (identical(type$type[-len], c("*", "*"))) {
             "p"
         } else {
@@ -133,7 +157,7 @@ dyncall_sig <- function(type, empty = FALSE, array = FALSE) {
     } else {
         stop(spaste(
             "Internal error: failed to detect signature ('%s')",
-            .v = list(type$type, type$kind), .vcoll = " "
+            .v = format_type_chain(type)
         ))
     }
 }
@@ -242,7 +266,8 @@ signature_type_info <- function(sig) {
 member_has_unsupported_signature <- function(mem) {
     if (!length(mem$type)) return(FALSE)
     any(vapply(mem$type, function(type) {
-        is.na(tryCatch(dyncall_sig(type, FALSE, array = TRUE), error = function(e) NA_character_))
+        sig <- tryCatch(dyncall_sig(type, FALSE, array = TRUE), error = function(e) NA_character_)
+        is.na(sig) || !signature_references_valid_names(sig)
     }, logical(1)))
 }
 

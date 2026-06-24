@@ -23,14 +23,14 @@ test_that("rdyncall-compatible ABI details are preserved", {
     expect_equal(p$Variadic$value$name, "vf")
     expect_false("unsupported_long_double" %in% p$Function$value$name)
     expect_false("_Hidden" %in% p$Struct$value$name)
-    expect_false("HasAnon" %in% p$Struct$value$name)
+    expect_true("HasAnon" %in% p$Struct$value$name)
     expect_equal(p$Enum$value$values[[which(p$Enum$value$name == "Boolish")]]$name, "PORTER_OK")
 
     report <- port_report(p)
     expect_true(any(report$kind == "unsupported_macro" & report$name == "MACRO_FN"))
     expect_true(any(report$kind == "unsupported_variadic_funcptr" & report$name == "callback_t"))
     expect_true(any(report$kind == "unsupported_signature" & report$name == "unsupported_long_double"))
-    expect_true(any(report$kind == "unsupported_signature" & report$name == "HasAnon"))
+    expect_true(any(report$kind == "unsupported_type" & report$name == "HasAnon"))
     expect_true(any(report$kind == "unsupported_export_name" & report$name == "_Hidden"))
     expect_true(any(report$kind == "unsupported_export_name" & report$name == "TRUE"))
     expect_true(any(report$kind == "unsupported_enum_value" & report$name == "TOO_LOW"))
@@ -43,6 +43,7 @@ test_that("rdyncall-compatible ABI details are preserved", {
     expect_match(txt, "Variadic: vf\\(Z\\)i fmt;", fixed = FALSE)
     expect_match(txt, "Plain\\{i\\[3\\]III\\}a b:5 :0 c:7;", fixed = FALSE)
     expect_match(txt, "PackedAligned\\{cd\\}c d @packed @align\\(8\\);", fixed = FALSE)
+    expect_match(txt, "HasAnon\\{\\};", fixed = FALSE)
 
     validation <- port_validate_symbols(p, c("fixed", "other_symbol"))
     expect_equal(validation$name, c("fixed", "vf"))
@@ -134,6 +135,83 @@ test_that("function type typedef pointers are written as pointers", {
     expect_match(txt, "Holder\\{p\\}cb;", fixed = FALSE)
 })
 
+test_that("CastXML bool and signed char fundamental types are supported", {
+    skip_if_no_castxml()
+
+    header <- tempfile(fileext = ".h")
+    writeLines(c(
+        "#include <stdbool.h>",
+        "typedef signed char Sint8;",
+        "bool sdl_bool(void);",
+        "bool sdl_sint8(Sint8 value, Sint8 *out);"
+    ), header)
+
+    p <- port(header, limit = TRUE)
+    functions <- port_get(p, "Function")
+
+    expect_true(all(c("sdl_bool", "sdl_sint8") %in% functions$name))
+    expect_false(any(port_report(p, "unsupported_signature")$name %in% functions$name))
+
+    p <- port_set(p, Package = "T", Version = "1.0", Library = "T")
+    file <- tempfile(fileext = ".dynport")
+    suppressWarnings(port_write(p, file))
+    txt <- paste(readLines(file), collapse = "\n")
+
+    expect_match(txt, "sdl_bool\\(\\)B;", fixed = FALSE)
+    expect_match(txt, "sdl_sint8\\(c\\*c\\)B value out;", fixed = FALSE)
+})
+
+test_that("opaque pointer names are preserved without requiring R export names", {
+    skip_if_no_castxml()
+
+    header <- tempfile(fileext = ".h")
+    writeLines(c(
+        "struct _Opaque;",
+        "struct _Opaque *opaque_identity(struct _Opaque *x);",
+        "int opaque_many(struct _Opaque * const *items, const char * const *names);",
+        "struct _Bad { int x; };",
+        "struct _Bad by_value_bad(void);"
+    ), header)
+
+    p <- port(header, limit = TRUE)
+    functions <- port_get(p, "Function")
+
+    expect_true(all(c("opaque_identity", "opaque_many") %in% functions$name))
+    expect_false("by_value_bad" %in% functions$name)
+    expect_true(any(port_report(p, "unsupported_signature")$name == "by_value_bad"))
+
+    p <- port_set(p, Package = "T", Version = "1.0", Library = "T")
+    file <- tempfile(fileext = ".dynport")
+    suppressWarnings(port_write(p, file))
+    txt <- paste(readLines(file), collapse = "\n")
+
+    expect_match(txt, "opaque_identity\\(\\*<_Opaque>\\)\\*<_Opaque> x;", fixed = FALSE)
+    expect_match(txt, "opaque_many\\(pp\\)i items names;", fixed = FALSE)
+})
+
+test_that("limit removes diagnostics from headers outside the selected directories", {
+    skip_if_no_castxml()
+
+    root <- tempfile("porter-limit-root-")
+    outside <- tempfile("porter-limit-outside-")
+    dir.create(root)
+    dir.create(outside)
+
+    outside_header <- file.path(outside, "outside.h")
+    header <- file.path(root, "main.h")
+    writeLines("enum Outside { OUTSIDE_TOO_WIDE = 9223372036854775807ULL };", outside_header)
+    writeLines(c(
+        sprintf("#include \"%s\"", outside_header),
+        "int fixed(void);"
+    ), header)
+
+    p <- port(header, limit = root)
+    expect_false(any(port_report(p)$name == "OUTSIDE_TOO_WIDE"))
+
+    p_all <- port(header, limit = FALSE)
+    expect_true(any(port_report(p_all, "unsupported_enum_value")$name == "OUTSIDE_TOO_WIDE"))
+})
+
 test_that("R headers can be converted despite anonymous CastXML members", {
     skip_if_no_castxml()
 
@@ -166,7 +244,7 @@ test_that("R headers can be converted despite anonymous CastXML members", {
 
     text <- readLines(file, warn = FALSE)
     expect_false(any(grepl("R_allocLD", text, fixed = TRUE)))
-    expect_false(any(grepl("_DllInfo", text, fixed = TRUE)))
+    expect_true(any(grepl("*<_DllInfo>", text, fixed = TRUE)))
     expect_false(any(grepl("FALSE=", text, fixed = TRUE)))
     expect_false(any(grepl("TRUE=", text, fixed = TRUE)))
 
