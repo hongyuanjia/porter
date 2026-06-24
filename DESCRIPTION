@@ -1,6 +1,6 @@
 Package: porter
 Title: Generate Port Files for C Libraries
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R: 
     person("Hongyuan", "Jia", , "hongyuanjia@cqust.edu.cn", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-0075-8183"))

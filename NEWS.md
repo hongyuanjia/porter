@@ -1,3 +1,11 @@
+# porter (development version)
+
+* Improve rdyncall-compatible signature output for CastXML `bool`, `signed char`,
+  opaque pointers, and const-qualified pointer chains.
+
+* Write single-enum dynport output as `Enum/<name>:` fields so generated files
+  are accepted by rdyncall.
+
 # porter 0.1.0
 
 * Initial CRAN submission.
