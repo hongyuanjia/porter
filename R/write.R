@@ -44,7 +44,7 @@ port_write <- function(port, file, reorder = TRUE) {
     )
 
     # treat enums differently
-    if (length(fmt$Enum) == 1L) {
+    if (is.null(names(fmt$Enum))) {
         out_enum <- list(Enum = format_field("Enum", fmt$Enum, show_key = FALSE))
     } else {
         out_enum <- mapply(
