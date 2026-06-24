@@ -1,6 +1,8 @@
 BASETYPE_MAP <- c(
     "B" = "_Bool",
+    "B" = "bool",
     "c" = "char",
+    "c" = "signed char",
     "C" = "unsigned char",
     "s" = "short int",
     "S" = "short unsigned int",

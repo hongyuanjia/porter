@@ -134,6 +134,32 @@ test_that("function type typedef pointers are written as pointers", {
     expect_match(txt, "Holder\\{p\\}cb;", fixed = FALSE)
 })
 
+test_that("CastXML bool and signed char fundamental types are supported", {
+    skip_if_no_castxml()
+
+    header <- tempfile(fileext = ".h")
+    writeLines(c(
+        "#include <stdbool.h>",
+        "typedef signed char Sint8;",
+        "bool sdl_bool(void);",
+        "bool sdl_sint8(Sint8 value, Sint8 *out);"
+    ), header)
+
+    p <- port(header, limit = TRUE)
+    functions <- port_get(p, "Function")
+
+    expect_true(all(c("sdl_bool", "sdl_sint8") %in% functions$name))
+    expect_false(any(port_report(p, "unsupported_signature")$name %in% functions$name))
+
+    p <- port_set(p, Package = "T", Version = "1.0", Library = "T")
+    file <- tempfile(fileext = ".dynport")
+    suppressWarnings(port_write(p, file))
+    txt <- paste(readLines(file), collapse = "\n")
+
+    expect_match(txt, "sdl_bool\\(\\)B;", fixed = FALSE)
+    expect_match(txt, "sdl_sint8\\(c\\*c\\)B value out;", fixed = FALSE)
+})
+
 test_that("R headers can be converted despite anonymous CastXML members", {
     skip_if_no_castxml()
 
