@@ -4,6 +4,11 @@ test_that("rdyncall-compatible ABI details are preserved", {
     header <- tempfile(fileext = ".h")
     writeLines(c(
         "#define MACRO_FN(x) ((x) + 1)",
+        "#define CONST_INT 42",
+        "#define CONST_HEX 0x20u",
+        "#define CONST_OR (CONST_HEX | 8)",
+        "#define CONST_STR \"hello\"",
+        "#define CONST_BAD UNKNOWN_CONST_VALUE",
         "int fixed(int x);",
         "int vf(const char *fmt, ...);",
         "typedef int (*callback_t)(int x, ...);",
@@ -19,6 +24,8 @@ test_that("rdyncall-compatible ABI details are preserved", {
     p <- port(header, limit = TRUE)
 
     expect_equal(p$Function$value$name, "fixed")
+    expect_equal(p$Constant$value$name, c("CONST_INT", "CONST_HEX", "CONST_OR", "CONST_STR"))
+    expect_equal(p$Constant$value$value, c("42", "32", "40", "\"hello\""))
     expect_false(any(p$Function$value$ellipsis))
     expect_equal(p$Variadic$value$name, "vf")
     expect_false("unsupported_long_double" %in% p$Function$value$name)
@@ -28,7 +35,8 @@ test_that("rdyncall-compatible ABI details are preserved", {
 
     report <- port_report(p)
     expect_true(any(report$kind == "unsupported_macro" & report$name == "MACRO_FN"))
-    expect_true(any(report$kind == "unsupported_variadic_funcptr" & report$name == "callback_t"))
+    expect_true(any(report$kind == "unsupported_constant" & report$name == "CONST_BAD"))
+    expect_false(any(report$kind == "unsupported_variadic_funcptr" & report$name == "callback_t"))
     expect_true(any(report$kind == "unsupported_signature" & report$name == "unsupported_long_double"))
     expect_true(any(report$kind == "unsupported_type" & report$name == "HasAnon"))
     expect_true(any(report$kind == "unsupported_export_name" & report$name == "_Hidden"))
@@ -40,6 +48,8 @@ test_that("rdyncall-compatible ABI details are preserved", {
     txt <- paste(readLines(file), collapse = "\n")
 
     expect_match(txt, "Function: fixed\\(i\\)i x;", fixed = FALSE)
+    expect_match(txt, "Constant:\\s*\\n    CONST_INT=42", fixed = FALSE)
+    expect_match(txt, "CONST_OR=40", fixed = TRUE)
     expect_match(txt, "Variadic: vf\\(Z\\)i fmt;", fixed = FALSE)
     expect_match(txt, "Plain\\{i\\[3\\]III\\}a b:5 :0 c:7;", fixed = FALSE)
     expect_match(txt, "PackedAligned\\{cd\\}c d @packed @align\\(8\\);", fixed = FALSE)
@@ -117,7 +127,9 @@ test_that("function type typedef pointers are written as pointers", {
     header <- tempfile(fileext = ".h")
     writeLines(c(
         "typedef int bare_fn_t(int x);",
-        "struct Holder { bare_fn_t *cb; };",
+        "typedef int (*callback_t)(int x);",
+        "struct Holder { bare_fn_t *cb; callback_t named_cb; int (*member_cb)(void *data); };",
+        "extern callback_t exported_cb;",
         "int fixed(int x);"
     ), header)
 
@@ -125,6 +137,9 @@ test_that("function type typedef pointers are written as pointers", {
 
     expect_equal(port_get(p, "Function")$name, "fixed")
     expect_false("bare_fn_t" %in% port_get(p, "FuncPtr")$name)
+    expect_false("callback_t" %in% port_get(p, "FuncPtr")$name)
+    expect_false("member_cb" %in% port_get(p, "FuncPtr")$name)
+    expect_equal(port_get(p, "FuncPtr")$name, "exported_cb")
     expect_equal(port_get(p, "Struct")$name, "Holder")
 
     p <- port_set(p, Package = "T", Version = "1.0", Library = "T")
@@ -132,7 +147,8 @@ test_that("function type typedef pointers are written as pointers", {
     suppressWarnings(port_write(p, file))
     txt <- paste(readLines(file), collapse = "\n")
 
-    expect_match(txt, "Holder\\{p\\}cb;", fixed = FALSE)
+    expect_match(txt, "Holder\\{ppp\\}cb named_cb member_cb;", fixed = FALSE)
+    expect_match(txt, "FuncPtr: exported_cb\\(i\\)i;", fixed = FALSE)
 })
 
 test_that("CastXML bool and signed char fundamental types are supported", {

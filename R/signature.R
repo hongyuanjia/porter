@@ -188,6 +188,11 @@ format_sig_func <- function(func) {
 
 format_sig_funcptr <- format_sig_func
 
+format_sig_constant <- function(constant) {
+    if (is.null(constant)) return("")
+    sprintf("%s=%s", constant$name, constant$value)
+}
+
 format_sig_struct <- function(struct) {
     format_sig_struct_union(struct, "struct")
 }

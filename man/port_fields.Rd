@@ -64,6 +64,7 @@ port_set(p, Version = NULL)
 
 Note that, following fields are always required for a \code{dynport} object and
 will be kept as \code{NULL} instead of removal: \code{Package}, \code{Version}, \code{Library},
-\code{Function}, \code{FuncPtr}, \code{Enum}, \code{Struct} and \code{Union}. Other fields are treated
-as user customize fields and will be removed when setting to \code{NULL}.`
+\code{Constant}, \code{Function}, \code{Variadic}, \code{FuncPtr}, \code{Enum}, \code{Struct} and \code{Union}.
+Other fields are treated as user customize fields and will be removed when
+setting to \code{NULL}.`
 }

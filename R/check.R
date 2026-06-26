@@ -90,6 +90,14 @@ port_check_field_df <- function(x, key, cols) {
                     "without any missing values.",
                     .v = list(name, key)
                 ))
+            } else if (type == "const" &&
+                (!is.character(x$value[[name]]) || anyNA(x$value[[name]]))
+            ) {
+                stop(spaste(
+                    "'%s' column in '%s' field should be a character column",
+                    "without any missing values.",
+                    .v = list(name, key)
+                ))
             } else if (type == "type" &&
                 (!is.list(x$value[[name]]) || any(!imap(x$value[[name]], inherits, "dynporttype")))
             ) {
@@ -170,6 +178,11 @@ port_check_field_df <- function(x, key, cols) {
     x
 }
 
+port_check_field_constant <- function(x, ...) {
+    port_check_field_df(x, "Constant",
+        c("name" = "chr", "value" = "const")
+    )
+}
 port_check_field_function <- function(x, ...) {
     port_check_field_df(x, "Function",
         c("name" = "chr", "returns" = "type", "arguments" = "name_type", "ellipsis" = "lgl")
