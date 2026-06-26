@@ -5,10 +5,14 @@ skip_if_no_castxml <- function() {
 local_porter_header <- function() {
     header <- tempfile(fileext = ".h")
     writeLines(c(
+        "#define PORTER_CONST 42",
+        "#define PORTER_CONST_OR (PORTER_CONST | 16)",
+        "#define PORTER_CONST_STR \"porter\"",
         "typedef enum PorterBool { PORTER_FALSE = 0, PORTER_TRUE = 1 } PorterBool;",
         "typedef struct PorterPoint { int x; double y; } PorterPoint;",
         "typedef union PorterValue { int i; double d; } PorterValue;",
         "typedef int (*PorterCallback)(int code, void *data);",
+        "extern PorterCallback porter_exported_callback;",
         "int porter_add(int a, int b);",
         "void porter_set_callback(PorterCallback cb);",
         "int porter_printf(const char *fmt, ...);"

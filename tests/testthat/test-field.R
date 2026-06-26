@@ -15,6 +15,7 @@ test_that("port_get() works", {
 
     expect_equal(port_get(p, "Package"), NULL)
     expect_equal(port_get(p, "Version"), NULL)
+    expect_equal(port_get(p, "Constant"), p$Constant$value)
     expect_equal(port_get(p, "Function"), p$Function$value)
     expect_equal(port_get(p, "FuncPtr"),  p$FuncPtr$value)
     expect_equal(port_get(p, "Struct"),   p$Struct$value)
@@ -43,6 +44,10 @@ test_that("port_set() works", {
     expect_error(port_set(p, "Library", NA))
     expect_s3_class({ p <- port_set(p, "Library", c("sdl.so", "sdl.dll")); p }, "dynport")
     expect_equal(port_get(p, "Library"), c("sdl.so", "sdl.dll"))
+
+    expect_error(port_set(p, "Constant", "a"))
+    expect_s3_class(p <- port_set(p, "Constant", p$constant$value), "dynport")
+    expect_equal(port_get(p, "Constant"), p$constant$value)
 
     expect_error(port_set(p, "Function", "a"))
     expect_s3_class(p <- port_set(p, "Function", p$func$value), "dynport")

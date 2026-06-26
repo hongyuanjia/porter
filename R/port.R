@@ -80,10 +80,9 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = lo
     data <- port_xml(out, dirs, pattern, clean = TRUE)
     parsed <- pull_report(data)
     data <- parsed$data
-    report <- combine_reports(
-        parsed$report,
-        scan_castxml_function_like_macros(header, cflags, castxml, dirs, pattern)
-    )
+    macros <- scan_castxml_macros(header, cflags, castxml, dirs, pattern)
+    data$Constant <- macros$constants
+    report <- combine_reports(parsed$report, macros$report)
 
     # set empty meta data
     l <- c(
@@ -97,6 +96,11 @@ port <- function(header, limit = TRUE, keep = FALSE, cflags = NULL, castxml = lo
             data, check = FALSE
         )
     )
+    missing <- setdiff(PORT_FIELDS, names(l))
+    if (length(missing)) {
+        l <- c(l, port_create_fields(missing, vector("list", length(missing)), FALSE))
+    }
+    l <- l[PORT_FIELDS]
 
     out <- structure(l, class = "dynport")
     attr(out, "report") <- report
@@ -227,6 +231,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
     fields  <- proc_node_fields(xml)
     types   <- proc_node_types(xml)
     funs    <- proc_node_funs(xml)
+    vars    <- proc_node_vars(xml)
     enums   <- pull_report(proc_node_enums(xml, types, files))
     report  <- enums$report
     enums   <- enums$data
@@ -234,7 +239,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
     unions  <- proc_node_unions(xml,  types, fields)
 
     # merge all type data to create a full list of types
-    types <- merge_all_types(types, enums, structs, unions, fields)
+    types <- merge_all_types(types, enums, structs, unions, fields, vars)
 
     # get function pointers
     funptrs <- types$func
@@ -294,8 +299,8 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
         # no matched
         if (!length(inclu)) {
             return(list(
-                Function = NULL, Variadic = NULL, FuncPtr = NULL, Enum = NULL,
-                Struct = NULL, Union = NULL, File = NULL
+                Constant = NULL, Function = NULL, Variadic = NULL, FuncPtr = NULL,
+                Enum = NULL, Struct = NULL, Union = NULL, File = NULL
             ))
         } else {
             report <- filter_report_by_dirs(report, dirs)
@@ -381,7 +386,7 @@ port_xml <- function(xml, dirs = NULL, pattern = NULL, clean = FALSE) {
     }
 
     out <- list(
-        Function = funs, Variadic = variadic, FuncPtr = funptrs,
+        Constant = NULL, Function = funs, Variadic = variadic, FuncPtr = funptrs,
         Enum = enums, Struct = structs, Union = unions,
         File = files
     )
@@ -473,7 +478,7 @@ find_basetype <- function(types, id, depth = Inf) {
     structure(list(type = type, kind = kind), class = "dynporttype")
 }
 
-merge_all_types <- function(types, enums, structs, unions, fields) {
+merge_all_types <- function(types, enums, structs, unions, fields, vars = NULL) {
     types$all <- data.frame()
 
     if (!is.null(types$def)) {
@@ -618,49 +623,10 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
             )
         )
 
-        # Only function types directly referenced by a PointerType are written
-        # as FuncPtr entries. Function-type typedefs remain in types$all so
-        # chains such as PointerType -> Typedef -> FunctionType resolve to p.
-        ind <- match(types$func$id, types$pointer$type)
-        types$func <- types$func[!is.na(ind), , drop = FALSE]
-        ind <- ind[!is.na(ind)]
-
-        if (!nrow(types$func)) {
+        types$func <- proc_type_funcptr_vars(types, vars)
+        if (is.null(types$func) || !nrow(types$func)) {
             types$func <- NULL
             return(types)
-        }
-
-        # there are only 2 possible ways that function pointers can appear:
-        # a. in Typedef
-        # b. as a member in Struct/Union
-        members_list <- c(
-            if (!is.null(structs)) structs$members else NULL,
-            if (!is.null(unions)) unions$members else NULL
-        )
-        members <- if (length(members_list)) {
-            do.call(rbind.data.frame, members_list)
-        } else {
-            df(id = character(), name = character(), type = character())
-        }
-        types_tmp <- df(
-            type = c(types$def$type, members$type),
-            name = c(types$def$name, members$name),
-            file = c(types$def$file,
-                fields$file[match(members$id, fields$id)]
-            )
-        )
-
-        ind <- match(types$pointer$id[ind], types_tmp$type)
-        types$func$name <- types_tmp$name[ind]
-        types$func$file <- types_tmp$file[ind]
-        types$func$name[is.na(types$func$name)] <- ""
-
-        # check again and issue warnings if still no matched
-        if (any(empty <- types$func$name == "")) {
-            warning(spaste(
-                "Failed to parse names for function pointers: %s.",
-                .v = spaste("'%s'", .v = types$func$id[empty], .rcoll = ", ")
-            ))
         }
 
         # process argument and return types
@@ -672,6 +638,42 @@ merge_all_types <- function(types, enums, structs, unions, fields) {
     }
 
     types
+}
+
+proc_type_funcptr_vars <- function(types, vars) {
+    if (is.null(vars) || !nrow(vars) || is.null(types$func) || !nrow(types$func)) {
+        return(NULL)
+    }
+
+    find_function_type <- function(id) {
+        seen <- character()
+        saw_pointer <- FALSE
+        while (!is.na(id) && nzchar(id) && !(id %in% seen)) {
+            seen <- c(seen, id)
+            ind <- match(id, types$all$id)
+            if (is.na(ind)) return(NA_character_)
+
+            kind <- types$all$kind[[ind]]
+            next_id <- types$all$type[[ind]]
+            if (kind == "pointer") {
+                saw_pointer <- TRUE
+            } else if (kind == "function") {
+                return(if (saw_pointer) id else NA_character_)
+            }
+
+            id <- next_id
+        }
+        NA_character_
+    }
+
+    function_id <- cmap(vars$type, find_function_type)
+    keep <- !is.na(function_id)
+    if (!any(keep)) return(NULL)
+
+    out <- types$func[match(function_id[keep], types$func$id), , drop = FALSE]
+    out$name <- vars$name[keep]
+    out$file <- vars$file[keep]
+    out
 }
 
 proc_node_files <- function(xml) {
@@ -746,6 +748,19 @@ proc_node_funs <- function(xml) {
     funs$static <- NULL
 
     funs
+}
+
+proc_node_vars <- function(xml) {
+    node_vars <- xml2::xml_find_all(xml, "Variable")
+    vars <- node_attrs(node_vars,
+        attrs = c("id", "name", "type", "context", "file", "static", "extern")
+    )
+    if (is.null(vars)) return(NULL)
+
+    vars <- vars[!vars$file %in% proc_node_builtin(xml), ]
+    vars <- vars[is.na(vars$static), , drop = FALSE]
+    vars$static <- NULL
+    vars
 }
 
 correct_struct_names <- function(structs, types, fields = NULL) {
@@ -1255,10 +1270,11 @@ combine_reports <- function(...) {
     out
 }
 
-scan_castxml_function_like_macros <- function(header, cflags, castxml, dirs = NULL, pattern = NULL) {
+scan_castxml_macros <- function(header, cflags, castxml, dirs = NULL, pattern = NULL) {
     defines <- run_castxml_preprocessor(castxml, "-dD", header, cflags)
     active <- run_castxml_preprocessor(castxml, "-dM", header, cflags)
     report <- empty_report()
+    constants <- NULL
 
     if (!defines$ok || !active$ok) {
         failed <- c(if (!defines$ok) "-dD", if (!active$ok) "-dM")
@@ -1267,24 +1283,33 @@ scan_castxml_function_like_macros <- function(header, cflags, castxml, dirs = NU
             c(defines$message, active$message)[c(!defines$ok, !active$ok)]
         ))
     }
-    if (!defines$ok || !active$ok) return(report)
+    if (!defines$ok || !active$ok) return(list(constants = constants, report = report))
 
-    candidates <- parse_castxml_macro_definitions(defines$output)
+    candidates <- parse_castxml_function_macro_definitions(defines$output)
     active_names <- parse_function_like_macro_names(active$output)
-    if (!nrow(candidates) || !length(active_names)) return(report)
+    if (nrow(candidates) && length(active_names)) {
+        candidates <- candidates[candidates$name %in% active_names, , drop = FALSE]
+        candidates <- candidates[!duplicated(candidates$name, fromLast = TRUE), , drop = FALSE]
+        candidates <- filter_macro_candidates(candidates, dirs, pattern)
+        if (nrow(candidates)) {
+            report <- combine_reports(report, new_report(
+                "unsupported_macro", candidates$name, candidates$file,
+                "function-like macro found in CastXML preprocessor output; dynport callable entry was not generated",
+                candidates$line
+            ))
+        }
+    }
 
-    candidates <- candidates[candidates$name %in% active_names, , drop = FALSE]
-    if (!nrow(candidates)) return(report)
+    constants <- scan_castxml_object_like_macro_constants(defines$output, active$output, dirs, pattern)
+    report <- combine_reports(report, attr(constants, "report", exact = TRUE))
+    attr(constants, "report") <- NULL
+    if (!nrow(constants)) constants <- NULL
 
-    candidates <- candidates[!duplicated(candidates$name, fromLast = TRUE), , drop = FALSE]
-    candidates <- filter_macro_candidates(candidates, dirs, pattern)
-    if (!nrow(candidates)) return(report)
+    list(constants = constants, report = report)
+}
 
-    combine_reports(report, new_report(
-        "unsupported_macro", candidates$name, candidates$file,
-        "function-like macro found in CastXML preprocessor output; dynport callable entry was not generated",
-        candidates$line
-    ))
+scan_castxml_function_like_macros <- function(header, cflags, castxml, dirs = NULL, pattern = NULL) {
+    scan_castxml_macros(header, cflags, castxml, dirs, pattern)$report
 }
 
 run_castxml_preprocessor <- function(castxml, mode, header, cflags) {
@@ -1317,6 +1342,10 @@ parse_function_like_macro_names <- function(lines) {
 }
 
 parse_castxml_macro_definitions <- function(lines) {
+    parse_castxml_function_macro_definitions(lines)
+}
+
+parse_castxml_function_macro_definitions <- function(lines) {
     if (!length(lines)) {
         return(data.frame(name = character(), file = character(), line = integer()))
     }
@@ -1347,6 +1376,315 @@ parse_castxml_macro_definitions <- function(lines) {
     }
 
     data.frame(name = names, file = files, line = line_numbers, stringsAsFactors = FALSE)
+}
+
+parse_castxml_object_macro_definitions <- function(lines) {
+    if (!length(lines)) {
+        return(data.frame(
+            name = character(), value = character(), file = character(),
+            line = integer(), stringsAsFactors = FALSE
+        ))
+    }
+
+    current_file <- NA_character_
+    current_line <- NA_integer_
+    names <- values <- files <- character()
+    line_numbers <- integer()
+
+    for (line in lines) {
+        marker <- regexec("^#\\s+(?:line\\s+)?([0-9]+)\\s+\"([^\"]+)\"", line, perl = TRUE)
+        marker_hit <- regmatches(line, marker)[[1L]]
+        if (length(marker_hit) > 2L) {
+            current_line <- as.integer(marker_hit[[2L]])
+            current_file <- marker_hit[[3L]]
+            next
+        }
+
+        macro <- regexec(
+            "^#\\s*define\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(.*))?$",
+            line, perl = TRUE
+        )
+        macro_hit <- regmatches(line, macro)[[1L]]
+        if (length(macro_hit) > 1L &&
+            !grepl("^#\\s*define\\s+[A-Za-z_][A-Za-z0-9_]*\\(", line, perl = TRUE) &&
+            is_real_preprocessor_file(current_file)
+        ) {
+            names <- c(names, macro_hit[[2L]])
+            values <- c(values, if (length(macro_hit) > 2L) macro_hit[[3L]] else "")
+            files <- c(files, normalizePath(current_file, mustWork = FALSE))
+            line_numbers <- c(line_numbers, current_line)
+        }
+
+        if (!is.na(current_line)) current_line <- current_line + 1L
+    }
+
+    data.frame(name = names, value = values, file = files, line = line_numbers,
+        stringsAsFactors = FALSE
+    )
+}
+
+parse_active_object_macro_values <- function(lines) {
+    if (!length(lines)) return(character())
+    names <- values <- character()
+    for (line in lines) {
+        if (grepl("^#\\s*define\\s+[A-Za-z_][A-Za-z0-9_]*\\(", line, perl = TRUE)) next
+        macro <- regexec(
+            "^#\\s*define\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(.*))?$",
+            line, perl = TRUE
+        )
+        hit <- regmatches(line, macro)[[1L]]
+        if (length(hit) > 1L) {
+            names <- c(names, hit[[2L]])
+            values <- c(values, if (length(hit) > 2L) hit[[3L]] else "")
+        }
+    }
+    if (!length(names)) return(character())
+    keep <- !duplicated(names, fromLast = TRUE)
+    values <- values[keep]
+    names(values) <- names[keep]
+    values
+}
+
+scan_castxml_object_like_macro_constants <- function(defines, active, dirs = NULL, pattern = NULL) {
+    report <- empty_report()
+    candidates <- parse_castxml_object_macro_definitions(defines)
+    active_values <- parse_active_object_macro_values(active)
+    if (!nrow(candidates) || !length(active_values)) {
+        out <- data.frame(name = character(), value = character(), stringsAsFactors = FALSE)
+        attr(out, "report") <- report
+        return(out)
+    }
+
+    candidates <- candidates[candidates$name %in% names(active_values), , drop = FALSE]
+    candidates <- candidates[!duplicated(candidates$name, fromLast = TRUE), , drop = FALSE]
+    candidates <- filter_macro_candidates(candidates, dirs, pattern)
+    if (!nrow(candidates)) {
+        out <- data.frame(name = character(), value = character(), stringsAsFactors = FALSE)
+        attr(out, "report") <- report
+        return(out)
+    }
+
+    keep_name <- valid_dynport_name(candidates$name)
+    if (any(!keep_name)) {
+        report <- combine_reports(report, new_report(
+            "unsupported_export_name", candidates$name[!keep_name], candidates$file[!keep_name],
+            "object-like macro name is not a valid R export name and was not written",
+            candidates$line[!keep_name]
+        ))
+    }
+    candidates <- candidates[keep_name, , drop = FALSE]
+    if (!nrow(candidates)) {
+        out <- data.frame(name = character(), value = character(), stringsAsFactors = FALSE)
+        attr(out, "report") <- report
+        return(out)
+    }
+
+    values <- cmap(candidates$name, function(name) {
+        macro_constant_value(name, active_values)
+    })
+    keep_value <- !is.na(values)
+    if (any(!keep_value)) {
+        report <- combine_reports(report, new_report(
+            "unsupported_constant", candidates$name[!keep_value], candidates$file[!keep_value],
+            "object-like macro value could not be safely represented as a dynport Constant",
+            candidates$line[!keep_value]
+        ))
+    }
+
+    out <- data.frame(
+        name = candidates$name[keep_value],
+        value = values[keep_value],
+        stringsAsFactors = FALSE
+    )
+    attr(out, "report") <- report
+    out
+}
+
+macro_constant_value <- function(name, active_values) {
+    if (!name %in% names(active_values)) return(NA_character_)
+    value <- expand_macro_constant(active_values[[name]], active_values, seen = name)
+    if (is.na(value)) return(NA_character_)
+    value <- trimws(value)
+
+    if (is_c_string_literal(value)) return(value)
+
+    value <- normalize_macro_integer_expression(value)
+    if (is.na(value)) return(NA_character_)
+    result <- eval_integer_expression(value)
+    if (is.na(result) || !is.finite(result) || result != trunc(result) || abs(result) > 2^53) {
+        return(NA_character_)
+    }
+    format(result, scientific = FALSE, trim = TRUE)
+}
+
+expand_macro_constant <- function(value, active_values, seen = character()) {
+    if (is.na(value)) return(NA_character_)
+    value <- trimws(strip_c_comments(value))
+    if (!nzchar(value)) return(NA_character_)
+    value <- unwrap_macro_parens(value)
+    if (is_c_string_literal(value)) return(value)
+
+    value <- gsub("\\b(?:SDL_)?U?INT(?:8|16|32|64)_C\\s*\\(([^()]*)\\)", "\\1", value, perl = TRUE)
+    if (grepl("\\b(?:SDL_)?UINT(?:8|16|32|64)_MAX\\b", value, perl = TRUE)) {
+        return(NA_character_)
+    }
+
+    ids <- unique(regmatches(value, gregexpr("\\b[A-Za-z_][A-Za-z0-9_]*\\b", value, perl = TRUE))[[1L]])
+    ids <- setdiff(ids, c("u", "U", "l", "L"))
+    for (id in ids) {
+        if (!id %in% names(active_values) || id %in% seen) return(NA_character_)
+        replacement <- expand_macro_constant(active_values[[id]], active_values, c(seen, id))
+        if (is.na(replacement) || is_c_string_literal(replacement)) return(NA_character_)
+        value <- gsub(paste0("\\b", id, "\\b"), paste0("(", replacement, ")"), value, perl = TRUE)
+    }
+    value
+}
+
+strip_c_comments <- function(x) {
+    x <- gsub("/\\*.*?\\*/", "", x, perl = TRUE)
+    sub("//.*$", "", x, perl = TRUE)
+}
+
+unwrap_macro_parens <- function(x) {
+    repeat {
+        y <- trimws(x)
+        if (!startsWith(y, "(") || substr(y, nchar(y), nchar(y)) != ")") return(y)
+        inner <- substr(y, 2L, nchar(y) - 1L)
+        if (!balanced_macro_parens(inner)) return(y)
+        x <- inner
+    }
+}
+
+balanced_macro_parens <- function(x) {
+    chars <- strsplit(x, "", fixed = TRUE)[[1L]]
+    depth <- 0L
+    for (ch in chars) {
+        if (ch == "(") depth <- depth + 1L
+        if (ch == ")") {
+            depth <- depth - 1L
+            if (depth < 0L) return(FALSE)
+        }
+    }
+    depth == 0L
+}
+
+is_c_string_literal <- function(x) {
+    grepl('^"([^"\\\\]|\\\\.)*"$', trimws(x), perl = TRUE)
+}
+
+normalize_macro_integer_expression <- function(x) {
+    x <- gsub("\\b(0[xX][0-9A-Fa-f]+|[0-9]+)[uUlL]+\\b", "\\1", x, perl = TRUE)
+    no_hex <- gsub("0[xX][0-9A-Fa-f]+", "", x, perl = TRUE)
+    if (grepl("[A-Za-z_]", no_hex, perl = TRUE)) return(NA_character_)
+    if (!grepl("^[0-9A-Fa-fxX[:space:]()+\\-*/%|&^~<>]+$", x, perl = TRUE)) return(NA_character_)
+    x
+}
+
+eval_integer_expression <- function(x) {
+    tokens <- tokenize_integer_expression(x)
+    if (!length(tokens)) return(NA_real_)
+    pos <- 1L
+
+    peek <- function() if (pos <= length(tokens)) tokens[[pos]] else ""
+    take <- function(tok = NULL) {
+        cur <- peek()
+        if (!is.null(tok) && cur != tok) return(FALSE)
+        pos <<- pos + 1L
+        if (is.null(tok)) cur else TRUE
+    }
+
+    parse_primary <- function() {
+        cur <- peek()
+        if (cur == "(") {
+            take("(")
+            val <- parse_bitor()
+            if (!take(")")) return(NA_real_)
+            return(val)
+        }
+        if (grepl("^(0[xX][0-9A-Fa-f]+|[0-9]+)$", cur, perl = TRUE)) {
+            take()
+            return(parse_integer_literal(cur))
+        }
+        NA_real_
+    }
+    parse_unary <- function() {
+        cur <- peek()
+        if (cur == "+") {
+            take("+")
+            return(parse_unary())
+        }
+        if (cur == "-") {
+            take("-")
+            return(-parse_unary())
+        }
+        if (cur == "~") return(NA_real_)
+        parse_primary()
+    }
+    parse_mul <- function() parse_binary(parse_unary, c("*", "/", "%"), function(op, a, b) {
+        switch(op, "*" = a * b, "/" = trunc(a / b), "%" = a %% b)
+    })
+    parse_add <- function() parse_binary(parse_mul, c("+", "-"), function(op, a, b) {
+        switch(op, "+" = a + b, "-" = a - b)
+    })
+    parse_shift <- function() parse_binary(parse_add, c("<<", ">>"), function(op, a, b) {
+        if (b < 0 || b != trunc(b)) return(NA_real_)
+        switch(op, "<<" = a * 2^b, ">>" = trunc(a / 2^b))
+    })
+    parse_bitand <- function() parse_binary(parse_shift, "&", function(op, a, b) bitwise_numeric(a, b, "and"))
+    parse_bitxor <- function() parse_binary(parse_bitand, "^", function(op, a, b) bitwise_numeric(a, b, "xor"))
+    parse_bitor <- function() parse_binary(parse_bitxor, "|", function(op, a, b) bitwise_numeric(a, b, "or"))
+    parse_binary <- function(parse_next, ops, combine) {
+        val <- parse_next()
+        while (peek() %in% ops) {
+            op <- take()
+            rhs <- parse_next()
+            val <- combine(op, val, rhs)
+        }
+        val
+    }
+
+    ans <- parse_bitor()
+    if (pos <= length(tokens) || is.na(ans)) NA_real_ else ans
+}
+
+tokenize_integer_expression <- function(x) {
+    pattern <- "0[xX][0-9A-Fa-f]+|[0-9]+|<<|>>|[()+\\-*/%|&^~]"
+    tokens <- regmatches(x, gregexpr(pattern, x, perl = TRUE))[[1L]]
+    collapsed <- gsub("[[:space:]]+", "", x, perl = TRUE)
+    if (!identical(paste0(tokens, collapse = ""), collapsed)) return(character())
+    tokens
+}
+
+parse_integer_literal <- function(x) {
+    if (grepl("^0[xX]", x)) {
+        digits <- strsplit(sub("^0[xX]", "", x), "", fixed = FALSE)[[1L]]
+        vals <- match(tolower(digits), c(0:9, letters[1:6])) - 1L
+        return(sum(vals * 16^rev(seq_along(vals) - 1L)))
+    }
+    as.numeric(x)
+}
+
+bitwise_numeric <- function(a, b, op) {
+    if (any(is.na(c(a, b))) || any(c(a, b) < 0) || any(c(a, b) != trunc(c(a, b)))) {
+        return(NA_real_)
+    }
+    n <- max(1L, ceiling(log(max(a, b, 1), 2)) + 1L)
+    abits <- integer(n)
+    bbits <- integer(n)
+    aa <- a
+    bb <- b
+    for (i in seq_len(n)) {
+        abits[[i]] <- aa %% 2L
+        bbits[[i]] <- bb %% 2L
+        aa <- trunc(aa / 2L)
+        bb <- trunc(bb / 2L)
+    }
+    bits <- switch(op,
+        and = as.integer(abits & bbits),
+        or = as.integer(abits | bbits),
+        xor = as.integer(xor(as.logical(abits), as.logical(bbits)))
+    )
+    sum(bits * 2^(seq_along(bits) - 1L))
 }
 
 is_real_preprocessor_file <- function(file) {
