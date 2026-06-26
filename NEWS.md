@@ -1,10 +1,13 @@
 # porter (development version)
 
 * Improve rdyncall-compatible signature output for CastXML `bool`, `signed char`,
-  opaque pointers, and const-qualified pointer chains.
+  opaque pointers, and const-qualified pointer chains (#16).
 
 * Write single-enum dynport output as `Enum/<name>:` fields so generated files
-  are accepted by rdyncall.
+  are accepted by rdyncall (#18).
+
+* Preserve object-like macro constants as `Constant` dynport fields and limit
+  `FuncPtr` output to real exported global function pointer variables (#20).
 
 # porter 0.1.0
 
