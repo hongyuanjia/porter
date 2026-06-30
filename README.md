@@ -5,6 +5,8 @@
 
 <!-- badges: start -->
 
+[![CRAN
+status](https://www.r-pkg.org/badges/version/porter)](https://CRAN.R-project.org/package=porter)
 <!-- badges: end -->
 
 The goal of {porter} is to generate port files for
@@ -15,7 +17,13 @@ syntax tree XML output tool to parse C header files.
 
 ## Installation
 
-You can install the development version of porter like so:
+You can install the released version of porter from CRAN:
+
+``` r
+install.packages("porter")
+```
+
+You can install the development version from GitHub:
 
 ``` r
 remotes::install_github("hongyuanjia/porter")
